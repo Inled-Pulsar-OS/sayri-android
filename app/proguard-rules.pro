@@ -1,0 +1,1 @@
+# Sayri Android Proguard Rules

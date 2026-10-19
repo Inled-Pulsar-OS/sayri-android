@@ -1,0 +1,22 @@
+[
+    {
+        "merged": "es.inled.sayri.app-debug-34:/xml_accessibility_service_config.xml.flat",
+        "source": "es.inled.sayri.app-main-36:/xml/accessibility_service_config.xml"
+    },
+    {
+        "merged": "es.inled.sayri.app-debug-34:/layout_dialog_settings.xml.flat",
+        "source": "es.inled.sayri.app-main-36:/layout/dialog_settings.xml"
+    },
+    {
+        "merged": "es.inled.sayri.app-debug-34:/drawable_ic_sayri_logo.xml.flat",
+        "source": "es.inled.sayri.app-main-36:/drawable/ic_sayri_logo.xml"
+    },
+    {
+        "merged": "es.inled.sayri.app-debug-34:/layout_item_message.xml.flat",
+        "source": "es.inled.sayri.app-main-36:/layout/item_message.xml"
+    },
+    {
+        "merged": "es.inled.sayri.app-debug-34:/layout_activity_main.xml.flat",
+        "source": "es.inled.sayri.app-main-36:/layout/activity_main.xml"
+    }
+]

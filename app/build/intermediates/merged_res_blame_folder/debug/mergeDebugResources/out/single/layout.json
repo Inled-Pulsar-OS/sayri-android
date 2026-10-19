@@ -1,0 +1,14 @@
+[
+    {
+        "merged": "es.inled.sayri.app-mergeDebugResources-33:/layout/dialog_settings.xml",
+        "source": "es.inled.sayri.app-main-36:/layout/dialog_settings.xml"
+    },
+    {
+        "merged": "es.inled.sayri.app-mergeDebugResources-33:/layout/item_message.xml",
+        "source": "es.inled.sayri.app-main-36:/layout/item_message.xml"
+    },
+    {
+        "merged": "es.inled.sayri.app-mergeDebugResources-33:/layout/activity_main.xml",
+        "source": "es.inled.sayri.app-main-36:/layout/activity_main.xml"
+    }
+]
