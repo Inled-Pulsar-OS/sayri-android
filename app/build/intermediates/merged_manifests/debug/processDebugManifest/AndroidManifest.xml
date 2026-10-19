@@ -13,6 +13,22 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+
+            <data android:scheme="https" />
+        </intent>
+    </queries>
 
     <permission
         android:name="es.inled.sayri.android.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
@@ -26,9 +42,9 @@
         android:appComponentFactory="androidx.core.app.CoreComponentFactory"
         android:debuggable="true"
         android:extractNativeLibs="false"
-        android:icon="@drawable/ic_sayri_logo"
+        android:icon="@drawable/sayri_logo"
         android:label="@string/app_name"
-        android:roundIcon="@drawable/ic_sayri_logo"
+        android:roundIcon="@drawable/sayri_logo"
         android:supportsRtl="true"
         android:theme="@style/Theme.Sayri"
         android:usesCleartextTraffic="true" >

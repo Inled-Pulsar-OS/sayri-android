@@ -6,14 +6,17 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.viewbinding.ViewBinding;
 import androidx.viewbinding.ViewBindings;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import es.inled.sayri.R;
+import es.inled.sayri.ui.CircleSearchOverlayView;
 import es.inled.sayri.ui.SayriOrbView;
 import java.lang.NullPointerException;
 import java.lang.Override;
@@ -30,13 +33,31 @@ public final class LayoutSayriCajitaAssistBinding implements ViewBinding {
   public final SayriOrbView assistOrb;
 
   @NonNull
+  public final MaterialButton btnAssistCamera;
+
+  @NonNull
+  public final MaterialButton btnAssistCircleSearch;
+
+  @NonNull
+  public final MaterialButton btnAssistLiveMode;
+
+  @NonNull
   public final ImageButton btnAssistSend;
+
+  @NonNull
+  public final MaterialButton btnAssistVoice;
 
   @NonNull
   public final MaterialCardView cajitaCard;
 
   @NonNull
+  public final CircleSearchOverlayView circleSearchOverlay;
+
+  @NonNull
   public final EditText etAssistInput;
+
+  @NonNull
+  public final ImageView ivCajitaLogo;
 
   @NonNull
   public final TextView tvAssistStatus;
@@ -46,15 +67,24 @@ public final class LayoutSayriCajitaAssistBinding implements ViewBinding {
 
   private LayoutSayriCajitaAssistBinding(@NonNull ConstraintLayout rootView,
       @NonNull View assistBackdrop, @NonNull SayriOrbView assistOrb,
-      @NonNull ImageButton btnAssistSend, @NonNull MaterialCardView cajitaCard,
-      @NonNull EditText etAssistInput, @NonNull TextView tvAssistStatus,
+      @NonNull MaterialButton btnAssistCamera, @NonNull MaterialButton btnAssistCircleSearch,
+      @NonNull MaterialButton btnAssistLiveMode, @NonNull ImageButton btnAssistSend,
+      @NonNull MaterialButton btnAssistVoice, @NonNull MaterialCardView cajitaCard,
+      @NonNull CircleSearchOverlayView circleSearchOverlay, @NonNull EditText etAssistInput,
+      @NonNull ImageView ivCajitaLogo, @NonNull TextView tvAssistStatus,
       @NonNull TextView tvAssistTranscription) {
     this.rootView = rootView;
     this.assistBackdrop = assistBackdrop;
     this.assistOrb = assistOrb;
+    this.btnAssistCamera = btnAssistCamera;
+    this.btnAssistCircleSearch = btnAssistCircleSearch;
+    this.btnAssistLiveMode = btnAssistLiveMode;
     this.btnAssistSend = btnAssistSend;
+    this.btnAssistVoice = btnAssistVoice;
     this.cajitaCard = cajitaCard;
+    this.circleSearchOverlay = circleSearchOverlay;
     this.etAssistInput = etAssistInput;
+    this.ivCajitaLogo = ivCajitaLogo;
     this.tvAssistStatus = tvAssistStatus;
     this.tvAssistTranscription = tvAssistTranscription;
   }
@@ -98,9 +128,33 @@ public final class LayoutSayriCajitaAssistBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.btnAssistCamera;
+      MaterialButton btnAssistCamera = ViewBindings.findChildViewById(rootView, id);
+      if (btnAssistCamera == null) {
+        break missingId;
+      }
+
+      id = R.id.btnAssistCircleSearch;
+      MaterialButton btnAssistCircleSearch = ViewBindings.findChildViewById(rootView, id);
+      if (btnAssistCircleSearch == null) {
+        break missingId;
+      }
+
+      id = R.id.btnAssistLiveMode;
+      MaterialButton btnAssistLiveMode = ViewBindings.findChildViewById(rootView, id);
+      if (btnAssistLiveMode == null) {
+        break missingId;
+      }
+
       id = R.id.btnAssistSend;
       ImageButton btnAssistSend = ViewBindings.findChildViewById(rootView, id);
       if (btnAssistSend == null) {
+        break missingId;
+      }
+
+      id = R.id.btnAssistVoice;
+      MaterialButton btnAssistVoice = ViewBindings.findChildViewById(rootView, id);
+      if (btnAssistVoice == null) {
         break missingId;
       }
 
@@ -110,9 +164,21 @@ public final class LayoutSayriCajitaAssistBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.circleSearchOverlay;
+      CircleSearchOverlayView circleSearchOverlay = ViewBindings.findChildViewById(rootView, id);
+      if (circleSearchOverlay == null) {
+        break missingId;
+      }
+
       id = R.id.etAssistInput;
       EditText etAssistInput = ViewBindings.findChildViewById(rootView, id);
       if (etAssistInput == null) {
+        break missingId;
+      }
+
+      id = R.id.ivCajitaLogo;
+      ImageView ivCajitaLogo = ViewBindings.findChildViewById(rootView, id);
+      if (ivCajitaLogo == null) {
         break missingId;
       }
 
@@ -129,8 +195,9 @@ public final class LayoutSayriCajitaAssistBinding implements ViewBinding {
       }
 
       return new LayoutSayriCajitaAssistBinding((ConstraintLayout) rootView, assistBackdrop,
-          assistOrb, btnAssistSend, cajitaCard, etAssistInput, tvAssistStatus,
-          tvAssistTranscription);
+          assistOrb, btnAssistCamera, btnAssistCircleSearch, btnAssistLiveMode, btnAssistSend,
+          btnAssistVoice, cajitaCard, circleSearchOverlay, etAssistInput, ivCajitaLogo,
+          tvAssistStatus, tvAssistTranscription);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

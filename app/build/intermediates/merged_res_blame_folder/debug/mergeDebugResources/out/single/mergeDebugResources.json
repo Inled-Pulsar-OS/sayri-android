@@ -1,11 +1,15 @@
 [
     {
+        "merged": "es.inled.sayri.app-debug-34:/drawable_bg_cajita_pill.xml.flat",
+        "source": "es.inled.sayri.app-main-36:/drawable/bg_cajita_pill.xml"
+    },
+    {
         "merged": "/home/jaime/.gradle/daemon/8.7/es.inled.sayri.app-debug-34:/drawable_bg_cajita_pill.xml.flat",
         "source": "/home/jaime/.gradle/daemon/8.7/es.inled.sayri.app-main-36:/drawable/bg_cajita_pill.xml"
     },
     {
-        "merged": "es.inled.sayri.app-debug-34:/xml_voice_interaction_service.xml.flat",
-        "source": "es.inled.sayri.app-main-36:/xml/voice_interaction_service.xml"
+        "merged": "es.inled.sayri.app-debug-34:/layout_layout_sayri_cajita_assist.xml.flat",
+        "source": "es.inled.sayri.app-main-36:/layout/layout_sayri_cajita_assist.xml"
     },
     {
         "merged": "/home/jaime/.gradle/daemon/8.7/es.inled.sayri.app-debug-34:/layout_item_message.xml.flat",
@@ -14,6 +18,10 @@
     {
         "merged": "/home/jaime/.gradle/daemon/8.7/es.inled.sayri.app-debug-34:/layout_layout_sayri_cajita_assist.xml.flat",
         "source": "/home/jaime/.gradle/daemon/8.7/es.inled.sayri.app-main-36:/layout/layout_sayri_cajita_assist.xml"
+    },
+    {
+        "merged": "es.inled.sayri.app-debug-34:/drawable_sayri_logo.png.flat",
+        "source": "es.inled.sayri.app-main-36:/drawable/sayri_logo.png"
     },
     {
         "merged": "/home/jaime/.gradle/daemon/8.7/es.inled.sayri.app-debug-34:/layout_activity_main.xml.flat",

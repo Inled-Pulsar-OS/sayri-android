@@ -4,12 +4,9 @@ import android.Manifest
 import android.content.DialogInterface
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.os.Bundle
 import android.provider.Settings
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
-import android.speech.tts.TextToSpeech
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.Toast
@@ -29,19 +26,18 @@ import es.inled.sayri.databinding.DialogSettingsBinding
 import es.inled.sayri.net.NetworkDiscovery
 import es.inled.sayri.service.SayriAccessibilityService
 import es.inled.sayri.tools.DeviceToolManager
+import es.inled.sayri.voice.VoiceManager
 import kotlinx.coroutines.launch
 import okhttp3.sse.EventSource
-import java.util.Locale
 
-class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
+class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var adapter: MessageAdapter
     private val apiClient by lazy { SayriApiClient() }
     private val toolManager by lazy { DeviceToolManager(this) }
 
-    private var speechRecognizer: SpeechRecognizer? = null
-    private var tts: TextToSpeech? = null
+    private lateinit var voiceManager: VoiceManager
     private var currentSse: EventSource? = null
 
     private val conversationHistory = mutableListOf<ChatRoleMessage>()
@@ -50,9 +46,17 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            startSpeechToText()
+            voiceManager.startListening()
         } else {
-            Toast.makeText(this, "Permiso de micrófono necesario", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Permiso de micrófono requerido", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private val takePictureLauncher = registerForActivityResult(
+        ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        if (bitmap != null) {
+            handleCapturedPhoto(bitmap)
         }
     }
 
@@ -67,8 +71,26 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         binding.rvMessages.adapter = adapter
 
-        tts = TextToSpeech(this, this)
-        initSpeechRecognizer()
+        voiceManager = VoiceManager(
+            context = this,
+            onSpeechResult = { text ->
+                handleUserQuery(text)
+            },
+            onAudioLevel = { rms ->
+                binding.mainOrb.setAudioLevel(rms)
+            },
+            onStateChange = { isListening ->
+                if (isListening) {
+                    binding.mainOrb.state = OrbState.LISTENING
+                    binding.tvStatus.text = "Escuchando voz... 🎙️"
+                } else {
+                    if (binding.mainOrb.state == OrbState.LISTENING) {
+                        binding.mainOrb.state = OrbState.IDLE
+                        refreshServerStatus()
+                    }
+                }
+            }
+        )
 
         setupListeners()
         setupSuggestions()
@@ -79,19 +101,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun setupListeners() {
         binding.mainOrb.setOnClickListener {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                startSpeechToText()
-            } else {
-                requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            }
+            triggerVoice()
         }
 
         binding.btnVoice.setOnClickListener {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                startSpeechToText()
-            } else {
-                requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            }
+            triggerVoice()
         }
 
         binding.btnSend.setOnClickListener {
@@ -104,6 +118,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         binding.btnSettings.setOnClickListener {
             showSettingsDialog()
+        }
+    }
+
+    private fun triggerVoice() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            voiceManager.startListening()
+        } else {
+            requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
 
@@ -170,14 +192,18 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             val appTarget = query.substring(5).trim()
             if (toolManager.openApp(appTarget)) {
                 adapter.addMessage(ChatMessage(author = "Tú", content = query, isUser = true))
-                adapter.addMessage(ChatMessage(author = "Sayri", content = "Abriendo $appTarget...", isUser = false))
+                val reply = "Abriendo $appTarget..."
+                adapter.addMessage(ChatMessage(author = "Sayri", content = reply, isUser = false))
+                voiceManager.speak(reply)
                 return
             }
         } else if (lower.startsWith("linterna ")) {
             val on = lower.contains("enciende") || lower.contains("activa") || lower.contains("on")
             toolManager.setFlashlight(on)
+            val msg = if (on) "Linterna encendida." else "Linterna apagada."
             adapter.addMessage(ChatMessage(author = "Tú", content = query, isUser = true))
-            adapter.addMessage(ChatMessage(author = "Sayri", content = if (on) "Linterna encendida." else "Linterna apagada.", isUser = false))
+            adapter.addMessage(ChatMessage(author = "Sayri", content = msg, isUser = false))
+            voiceManager.speak(msg)
             return
         }
 
@@ -214,7 +240,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     val finalTxt = if (finalAnswer.isNotEmpty()) finalAnswer else fullAnswer.toString()
                     adapter.updateLastMessage(finalTxt)
                     conversationHistory.add(ChatRoleMessage("assistant", finalTxt))
-                    speakOut(finalTxt)
+
+                    voiceManager.speak(finalTxt) {
+                        runOnUiThread {
+                            binding.mainOrb.state = OrbState.IDLE
+                        }
+                    }
                 }
             },
             onError = { err ->
@@ -224,6 +255,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 }
             }
         )
+    }
+
+    private fun handleCapturedPhoto(bitmap: Bitmap) {
+        val prompt = "He capturado una foto con la cámara. Analízala y ayúdame con lo que aparece."
+        sendMessageToSayri(prompt)
     }
 
     private fun performScreenPerception() {
@@ -250,7 +286,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             res.onSuccess { decision ->
                 binding.mainOrb.state = OrbState.SPEAKING
                 adapter.addMessage(ChatMessage(author = "Sayri", content = decision, isUser = false))
-                speakOut(decision)
+                voiceManager.speak(decision) {
+                    runOnUiThread { binding.mainOrb.state = OrbState.IDLE }
+                }
             }.onFailure { err ->
                 binding.mainOrb.state = OrbState.IDLE
                 adapter.addMessage(ChatMessage(author = "Sayri", content = "⚠️ Error analizando pantalla: ${err.message}", isUser = false))
@@ -315,69 +353,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             .show()
     }
 
-    private fun initSpeechRecognizer() {
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) return
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
-            setRecognitionListener(object : RecognitionListener {
-                override fun onReadyForSpeech(params: Bundle?) {
-                    binding.mainOrb.state = OrbState.LISTENING
-                    binding.tvStatus.text = "Escuchando voz... 🎙️"
-                }
-                override fun onBeginningOfSpeech() {}
-                override fun onRmsChanged(rmsdB: Float) {}
-                override fun onBufferReceived(buffer: ByteArray?) {}
-                override fun onEndOfSpeech() {
-                    binding.mainOrb.state = OrbState.THINKING
-                    binding.tvStatus.text = "Procesando..."
-                }
-                override fun onError(error: Int) {
-                    binding.mainOrb.state = OrbState.IDLE
-                    refreshServerStatus()
-                }
-                override fun onResults(results: Bundle?) {
-                    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    val text = matches?.firstOrNull()?.trim()
-                    if (!text.isNullOrEmpty()) {
-                        handleUserQuery(text)
-                    } else {
-                        binding.mainOrb.state = OrbState.IDLE
-                    }
-                }
-                override fun onPartialResults(partialResults: Bundle?) {}
-                override fun onEvent(eventType: Int, params: Bundle?) {}
-            })
-        }
-    }
-
-    private fun startSpeechToText() {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-        }
-        speechRecognizer?.startListening(intent)
-    }
-
-    override fun onInit(status: Int) {
-        if (status == TextToSpeech.SUCCESS) {
-            tts?.language = Locale("es", "ES")
-        }
-    }
-
-    private fun speakOut(text: String) {
-        val cleanSpeech = text.replace(Regex("```[\\s\\S]*?```"), "")
-            .replace(Regex("`[^`]*`"), "")
-            .replace(Regex("[*#_~]"), "")
-            .trim()
-        if (cleanSpeech.isNotEmpty()) {
-            tts?.speak(cleanSpeech, TextToSpeech.QUEUE_FLUSH, null, "sayri-tts-${System.currentTimeMillis()}")
-        }
-    }
-
     override fun onDestroy() {
         currentSse?.cancel()
-        speechRecognizer?.destroy()
-        tts?.stop()
-        tts?.shutdown()
+        voiceManager.destroy()
         super.onDestroy()
     }
 }
