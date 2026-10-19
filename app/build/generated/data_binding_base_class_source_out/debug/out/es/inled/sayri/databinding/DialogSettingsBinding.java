@@ -5,7 +5,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
-import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.viewbinding.ViewBinding;
@@ -18,10 +19,16 @@ import java.lang.String;
 
 public final class DialogSettingsBinding implements ViewBinding {
   @NonNull
-  private final LinearLayout rootView;
+  private final ScrollView rootView;
 
   @NonNull
   public final MaterialButton btnAccessibilitySettings;
+
+  @NonNull
+  public final MaterialButton btnDefaultAssistant;
+
+  @NonNull
+  public final MaterialButton btnScanNetwork;
 
   @NonNull
   public final EditText etApiKey;
@@ -32,19 +39,26 @@ public final class DialogSettingsBinding implements ViewBinding {
   @NonNull
   public final EditText etPort;
 
-  private DialogSettingsBinding(@NonNull LinearLayout rootView,
-      @NonNull MaterialButton btnAccessibilitySettings, @NonNull EditText etApiKey,
-      @NonNull EditText etHost, @NonNull EditText etPort) {
+  @NonNull
+  public final TextView tvScanResult;
+
+  private DialogSettingsBinding(@NonNull ScrollView rootView,
+      @NonNull MaterialButton btnAccessibilitySettings, @NonNull MaterialButton btnDefaultAssistant,
+      @NonNull MaterialButton btnScanNetwork, @NonNull EditText etApiKey, @NonNull EditText etHost,
+      @NonNull EditText etPort, @NonNull TextView tvScanResult) {
     this.rootView = rootView;
     this.btnAccessibilitySettings = btnAccessibilitySettings;
+    this.btnDefaultAssistant = btnDefaultAssistant;
+    this.btnScanNetwork = btnScanNetwork;
     this.etApiKey = etApiKey;
     this.etHost = etHost;
     this.etPort = etPort;
+    this.tvScanResult = tvScanResult;
   }
 
   @Override
   @NonNull
-  public LinearLayout getRoot() {
+  public ScrollView getRoot() {
     return rootView;
   }
 
@@ -75,6 +89,18 @@ public final class DialogSettingsBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.btnDefaultAssistant;
+      MaterialButton btnDefaultAssistant = ViewBindings.findChildViewById(rootView, id);
+      if (btnDefaultAssistant == null) {
+        break missingId;
+      }
+
+      id = R.id.btnScanNetwork;
+      MaterialButton btnScanNetwork = ViewBindings.findChildViewById(rootView, id);
+      if (btnScanNetwork == null) {
+        break missingId;
+      }
+
       id = R.id.etApiKey;
       EditText etApiKey = ViewBindings.findChildViewById(rootView, id);
       if (etApiKey == null) {
@@ -93,8 +119,14 @@ public final class DialogSettingsBinding implements ViewBinding {
         break missingId;
       }
 
-      return new DialogSettingsBinding((LinearLayout) rootView, btnAccessibilitySettings, etApiKey,
-          etHost, etPort);
+      id = R.id.tvScanResult;
+      TextView tvScanResult = ViewBindings.findChildViewById(rootView, id);
+      if (tvScanResult == null) {
+        break missingId;
+      }
+
+      return new DialogSettingsBinding((ScrollView) rootView, btnAccessibilitySettings,
+          btnDefaultAssistant, btnScanNetwork, etApiKey, etHost, etPort, tvScanResult);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

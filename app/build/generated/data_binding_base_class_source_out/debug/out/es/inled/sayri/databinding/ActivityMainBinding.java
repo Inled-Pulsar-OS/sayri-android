@@ -17,6 +17,7 @@ import androidx.viewbinding.ViewBinding;
 import androidx.viewbinding.ViewBindings;
 import com.google.android.material.button.MaterialButton;
 import es.inled.sayri.R;
+import es.inled.sayri.ui.SayriOrbView;
 import java.lang.NullPointerException;
 import java.lang.Override;
 import java.lang.String;
@@ -26,16 +27,10 @@ public final class ActivityMainBinding implements ViewBinding {
   private final ConstraintLayout rootView;
 
   @NonNull
-  public final HorizontalScrollView actionsScroll;
-
-  @NonNull
   public final LinearLayout bottomInputLayout;
 
   @NonNull
-  public final MaterialButton btnIdea;
-
-  @NonNull
-  public final MaterialButton btnScreenPerception;
+  public final MaterialButton btnQuickConnect;
 
   @NonNull
   public final ImageButton btnSend;
@@ -44,10 +39,19 @@ public final class ActivityMainBinding implements ViewBinding {
   public final ImageButton btnSettings;
 
   @NonNull
-  public final MaterialButton btnTomorrow;
+  public final ImageButton btnVoice;
 
   @NonNull
-  public final ImageButton btnVoice;
+  public final TextView chipIdea;
+
+  @NonNull
+  public final TextView chipScreen;
+
+  @NonNull
+  public final TextView chipTimer;
+
+  @NonNull
+  public final TextView chipTomorrow;
 
   @NonNull
   public final EditText etMessage;
@@ -56,30 +60,49 @@ public final class ActivityMainBinding implements ViewBinding {
   public final LinearLayout headerLayout;
 
   @NonNull
+  public final LinearLayout layoutDiscoveryBanner;
+
+  @NonNull
+  public final SayriOrbView mainOrb;
+
+  @NonNull
   public final RecyclerView rvMessages;
+
+  @NonNull
+  public final HorizontalScrollView suggestionsScroll;
+
+  @NonNull
+  public final TextView tvDiscoveredHost;
 
   @NonNull
   public final TextView tvStatus;
 
   private ActivityMainBinding(@NonNull ConstraintLayout rootView,
-      @NonNull HorizontalScrollView actionsScroll, @NonNull LinearLayout bottomInputLayout,
-      @NonNull MaterialButton btnIdea, @NonNull MaterialButton btnScreenPerception,
-      @NonNull ImageButton btnSend, @NonNull ImageButton btnSettings,
-      @NonNull MaterialButton btnTomorrow, @NonNull ImageButton btnVoice,
-      @NonNull EditText etMessage, @NonNull LinearLayout headerLayout,
-      @NonNull RecyclerView rvMessages, @NonNull TextView tvStatus) {
+      @NonNull LinearLayout bottomInputLayout, @NonNull MaterialButton btnQuickConnect,
+      @NonNull ImageButton btnSend, @NonNull ImageButton btnSettings, @NonNull ImageButton btnVoice,
+      @NonNull TextView chipIdea, @NonNull TextView chipScreen, @NonNull TextView chipTimer,
+      @NonNull TextView chipTomorrow, @NonNull EditText etMessage,
+      @NonNull LinearLayout headerLayout, @NonNull LinearLayout layoutDiscoveryBanner,
+      @NonNull SayriOrbView mainOrb, @NonNull RecyclerView rvMessages,
+      @NonNull HorizontalScrollView suggestionsScroll, @NonNull TextView tvDiscoveredHost,
+      @NonNull TextView tvStatus) {
     this.rootView = rootView;
-    this.actionsScroll = actionsScroll;
     this.bottomInputLayout = bottomInputLayout;
-    this.btnIdea = btnIdea;
-    this.btnScreenPerception = btnScreenPerception;
+    this.btnQuickConnect = btnQuickConnect;
     this.btnSend = btnSend;
     this.btnSettings = btnSettings;
-    this.btnTomorrow = btnTomorrow;
     this.btnVoice = btnVoice;
+    this.chipIdea = chipIdea;
+    this.chipScreen = chipScreen;
+    this.chipTimer = chipTimer;
+    this.chipTomorrow = chipTomorrow;
     this.etMessage = etMessage;
     this.headerLayout = headerLayout;
+    this.layoutDiscoveryBanner = layoutDiscoveryBanner;
+    this.mainOrb = mainOrb;
     this.rvMessages = rvMessages;
+    this.suggestionsScroll = suggestionsScroll;
+    this.tvDiscoveredHost = tvDiscoveredHost;
     this.tvStatus = tvStatus;
   }
 
@@ -110,27 +133,15 @@ public final class ActivityMainBinding implements ViewBinding {
     // This is done to optimize the compiled bytecode for size and performance.
     int id;
     missingId: {
-      id = R.id.actionsScroll;
-      HorizontalScrollView actionsScroll = ViewBindings.findChildViewById(rootView, id);
-      if (actionsScroll == null) {
-        break missingId;
-      }
-
       id = R.id.bottomInputLayout;
       LinearLayout bottomInputLayout = ViewBindings.findChildViewById(rootView, id);
       if (bottomInputLayout == null) {
         break missingId;
       }
 
-      id = R.id.btnIdea;
-      MaterialButton btnIdea = ViewBindings.findChildViewById(rootView, id);
-      if (btnIdea == null) {
-        break missingId;
-      }
-
-      id = R.id.btnScreenPerception;
-      MaterialButton btnScreenPerception = ViewBindings.findChildViewById(rootView, id);
-      if (btnScreenPerception == null) {
+      id = R.id.btnQuickConnect;
+      MaterialButton btnQuickConnect = ViewBindings.findChildViewById(rootView, id);
+      if (btnQuickConnect == null) {
         break missingId;
       }
 
@@ -146,15 +157,33 @@ public final class ActivityMainBinding implements ViewBinding {
         break missingId;
       }
 
-      id = R.id.btnTomorrow;
-      MaterialButton btnTomorrow = ViewBindings.findChildViewById(rootView, id);
-      if (btnTomorrow == null) {
-        break missingId;
-      }
-
       id = R.id.btnVoice;
       ImageButton btnVoice = ViewBindings.findChildViewById(rootView, id);
       if (btnVoice == null) {
+        break missingId;
+      }
+
+      id = R.id.chipIdea;
+      TextView chipIdea = ViewBindings.findChildViewById(rootView, id);
+      if (chipIdea == null) {
+        break missingId;
+      }
+
+      id = R.id.chipScreen;
+      TextView chipScreen = ViewBindings.findChildViewById(rootView, id);
+      if (chipScreen == null) {
+        break missingId;
+      }
+
+      id = R.id.chipTimer;
+      TextView chipTimer = ViewBindings.findChildViewById(rootView, id);
+      if (chipTimer == null) {
+        break missingId;
+      }
+
+      id = R.id.chipTomorrow;
+      TextView chipTomorrow = ViewBindings.findChildViewById(rootView, id);
+      if (chipTomorrow == null) {
         break missingId;
       }
 
@@ -170,9 +199,33 @@ public final class ActivityMainBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.layoutDiscoveryBanner;
+      LinearLayout layoutDiscoveryBanner = ViewBindings.findChildViewById(rootView, id);
+      if (layoutDiscoveryBanner == null) {
+        break missingId;
+      }
+
+      id = R.id.mainOrb;
+      SayriOrbView mainOrb = ViewBindings.findChildViewById(rootView, id);
+      if (mainOrb == null) {
+        break missingId;
+      }
+
       id = R.id.rvMessages;
       RecyclerView rvMessages = ViewBindings.findChildViewById(rootView, id);
       if (rvMessages == null) {
+        break missingId;
+      }
+
+      id = R.id.suggestionsScroll;
+      HorizontalScrollView suggestionsScroll = ViewBindings.findChildViewById(rootView, id);
+      if (suggestionsScroll == null) {
+        break missingId;
+      }
+
+      id = R.id.tvDiscoveredHost;
+      TextView tvDiscoveredHost = ViewBindings.findChildViewById(rootView, id);
+      if (tvDiscoveredHost == null) {
         break missingId;
       }
 
@@ -182,9 +235,10 @@ public final class ActivityMainBinding implements ViewBinding {
         break missingId;
       }
 
-      return new ActivityMainBinding((ConstraintLayout) rootView, actionsScroll, bottomInputLayout,
-          btnIdea, btnScreenPerception, btnSend, btnSettings, btnTomorrow, btnVoice, etMessage,
-          headerLayout, rvMessages, tvStatus);
+      return new ActivityMainBinding((ConstraintLayout) rootView, bottomInputLayout,
+          btnQuickConnect, btnSend, btnSettings, btnVoice, chipIdea, chipScreen, chipTimer,
+          chipTomorrow, etMessage, headerLayout, layoutDiscoveryBanner, mainOrb, rvMessages,
+          suggestionsScroll, tvDiscoveredHost, tvStatus);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

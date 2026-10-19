@@ -9,4 +9,11 @@
         <item name="android:statusBarColor">@color/sayri_background</item>
         <item name="android:navigationBarColor">@color/sayri_background</item>
     </style>
+
+    <style name="Theme.Sayri.Assist" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.Dialog</item>
+    </style>
 </resources>

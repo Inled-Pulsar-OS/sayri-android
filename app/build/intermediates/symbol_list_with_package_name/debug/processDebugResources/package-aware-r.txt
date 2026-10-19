@@ -2983,6 +2983,7 @@ drawable abc_textfield_search_material
 drawable abc_vector_test
 drawable avd_hide_password
 drawable avd_show_password
+drawable bg_cajita_pill
 drawable btn_checkbox_checked_mtrl
 drawable btn_checkbox_checked_to_unchecked_mtrl_animation
 drawable btn_checkbox_unchecked_mtrl
@@ -3159,7 +3160,6 @@ id action_mode_bar_stub
 id action_mode_close_button
 id action_text
 id actions
-id actionsScroll
 id activity_chooser_view_content
 id add
 id alertTitle
@@ -3173,6 +3173,8 @@ id antiClockwise
 id anticipate
 id arc
 id asConfigured
+id assistBackdrop
+id assistOrb
 id async
 id auto
 id autoComplete
@@ -3191,14 +3193,16 @@ id bounceBoth
 id bounceEnd
 id bounceStart
 id btnAccessibilitySettings
-id btnIdea
-id btnScreenPerception
+id btnAssistSend
+id btnDefaultAssistant
+id btnQuickConnect
+id btnScanNetwork
 id btnSend
 id btnSettings
-id btnTomorrow
 id btnVoice
 id buttonPanel
 id cache_measures
+id cajitaCard
 id callMeasure
 id cancel_button
 id cardMessage
@@ -3213,6 +3217,10 @@ id chain2
 id chains
 id checkbox
 id checked
+id chipIdea
+id chipScreen
+id chipTimer
+id chipTomorrow
 id chronometer
 id circle_center
 id clear_text
@@ -3280,6 +3288,7 @@ id endToStart
 id enterAlways
 id enterAlwaysCollapsed
 id etApiKey
+id etAssistInput
 id etHost
 id etMessage
 id etPort
@@ -3338,6 +3347,7 @@ id jumpToEnd
 id jumpToStart
 id labeled
 id layout
+id layoutDiscoveryBanner
 id left
 id leftToRight
 id legacy
@@ -3347,6 +3357,7 @@ id linear
 id listMode
 id list_item
 id m3_side_sheet
+id mainOrb
 id marquee
 id masked
 id match_constraint
@@ -3534,6 +3545,7 @@ id stop
 id stretch
 id submenuarrow
 id submit_area
+id suggestionsScroll
 id supportScrollUp
 id tabMode
 id tag_accessibility_actions
@@ -3581,8 +3593,12 @@ id transition_position
 id transition_scene_layoutid_cache
 id transition_transform
 id triangle
+id tvAssistStatus
+id tvAssistTranscription
 id tvAuthor
 id tvContent
+id tvDiscoveredHost
+id tvScanResult
 id tvStatus
 id unchecked
 id uniform
@@ -3742,6 +3758,7 @@ layout dialog_settings
 layout ime_base_split_test_activity
 layout ime_secondary_split_test_activity
 layout item_message
+layout layout_sayri_cajita_assist
 layout m3_alert_dialog
 layout m3_alert_dialog_actions
 layout m3_alert_dialog_title
@@ -4609,6 +4626,7 @@ style Theme_MaterialComponents_Light_NoActionBar_Bridge
 style Theme_MaterialComponents_NoActionBar
 style Theme_MaterialComponents_NoActionBar_Bridge
 style Theme_Sayri
+style Theme_Sayri_Assist
 style ThemeOverlay_AppCompat
 style ThemeOverlay_AppCompat_ActionBar
 style ThemeOverlay_AppCompat_Dark
@@ -5254,3 +5272,4 @@ styleable ViewStubCompat android_id android_layout android_inflatedId
 styleable ViewTransition android_id SharedValue SharedValueId clearsTag duration ifTagNotSet ifTagSet motionInterpolator motionTarget onStateTransition pathMotionArc setsTag transitionDisable upDuration viewTransitionMode
 styleable include constraintSet
 xml accessibility_service_config
+xml voice_interaction_service

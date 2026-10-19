@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#80000000">
+
+    <!-- Dismiss Background Backdrop -->
+    <View
+        android:id="@+id/assistBackdrop"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/cajitaCard" />
+
+    <!-- Sayri Cajita Acrylic Card -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cajitaCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        app:cardCornerRadius="24dp"
+        app:cardBackgroundColor="#F00D1424"
+        app:strokeColor="#33FFFFFF"
+        app:strokeWidth="1.5dp"
+        app:cardElevation="16dp"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:padding="20dp">
+
+            <!-- Glowing Animated Sayri Orb -->
+            <es.inled.sayri.ui.SayriOrbView
+                android:id="@+id/assistOrb"
+                android:layout_width="96dp"
+                android:layout_height="96dp"
+                android:layout_marginBottom="12dp" />
+
+            <!-- Transcription / Response text -->
+            <TextView
+                android:id="@+id/tvAssistStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="¿En qué puedo ayudarte?"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textAlignment="center"
+                android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:id="@+id/tvAssistTranscription"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#CAC4D0"
+                android:textSize="15sp"
+                android:maxLines="6"
+                android:visibility="gone"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Input Pill Box -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_cajita_pill"
+                android:paddingHorizontal="16dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_sayri_logo"
+                    android:contentDescription="Sayri" />
+
+                <EditText
+                    android:id="@+id/etAssistInput"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="12dp"
+                    android:background="@null"
+                    android:hint="Pregunta a Sayri..."
+                    android:textColor="#FFFFFF"
+                    android:textColorHint="#88FFFFFF"
+                    android:textSize="15sp"
+                    android:inputType="textCapSentences" />
+
+                <ImageButton
+                    android:id="@+id/btnAssistSend"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_send"
+                    app:tint="#4DD0E1"
+                    android:contentDescription="Send" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
