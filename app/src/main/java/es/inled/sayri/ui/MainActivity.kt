@@ -594,9 +594,16 @@ class MainActivity : AppCompatActivity() {
         service.captureScreenshot { screenBitmap ->
             runOnUiThread {
                 val snapshot = service.dumpScreenHierarchy(userIntent = "Analyze screen and guide user")
-                val prompt = if (snapshot.elements.isNotEmpty()) {
-                    val elements = snapshot.elements.take(15).mapNotNull { it.text ?: it.contentDescription }.joinToString(", ")
-                    "[Mobile Screen Perception] Active app: ${snapshot.packageName}. Elements visible on screen: $elements. Guide me or assist based on this screen."
+                val elementsSummary = snapshot.elements.take(20).mapNotNull { el ->
+                    val text = el.text ?: el.contentDescription
+                    if (!text.isNullOrBlank()) {
+                        val coords = if (el.bounds.size == 4) "center: (${(el.bounds[0]+el.bounds[2])/2}, ${(el.bounds[1]+el.bounds[3])/2})" else ""
+                        "- \"${text.trim()}\" $coords ${if (el.clickable) "[Clickable]" else ""}"
+                    } else null
+                }.joinToString("\n")
+
+                val prompt = if (elementsSummary.isNotEmpty()) {
+                    "[Mobile Screen Perception & OCR Map]\nActive app: ${snapshot.packageName}\nScreen elements with coordinates:\n$elementsSummary\n\nGuide me or interact with any element using [ACTION: CLICK_TEXT <text>] or [ACTION: CLICK_COORDS <x> <y>]."
                 } else {
                     "[Mobile Screen Perception] Active app: ${snapshot.packageName}. Guide me or assist based on this screen."
                 }

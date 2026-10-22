@@ -1,21 +1,58 @@
 package es.inled.sayri.tools
 
-import android.app.SearchManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.hardware.camera2.CameraManager
 import android.net.Uri
 import android.provider.AlarmClock
+import android.provider.MediaStore
+import android.util.Log
 import es.inled.sayri.service.SayriAccessibilityService
 
+data class AppInfo(
+    val label: String,
+    val packageName: String,
+    val isSystem: Boolean = false
+)
+
+data class DiscoveredIntent(
+    val action: String,
+    val category: String? = null,
+    val mimeType: String? = null,
+    val targetApp: String? = null,
+    val description: String
+)
+
 /**
- * Handles device actions and tools inspired by Dicio and Private-Agent.
+ * Handles device actions, App Functions, App Intents and Accessibility control.
  */
 class DeviceToolManager(private val context: Context) {
 
+    private val tag = "DeviceToolManager"
+
     /**
-     * Finds and launches an application installed on the device by name.
+     * Dynamically queries all launchable applications installed on the device.
+     */
+    fun getInstalledApps(): List<AppInfo> {
+        val pm = context.packageManager
+        val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+        }
+        val resolveList = pm.queryIntentActivities(mainIntent, 0)
+        return resolveList.mapNotNull { resolveInfo ->
+            val label = resolveInfo.loadLabel(pm)?.toString()?.trim() ?: ""
+            val pkg = resolveInfo.activityInfo?.packageName ?: ""
+            if (label.isNotEmpty() && pkg.isNotEmpty()) {
+                val isSys = (resolveInfo.activityInfo.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                AppInfo(label, pkg, isSys)
+            } else null
+        }.distinctBy { it.packageName }.sortedBy { it.label }
+    }
+
+    /**
+     * Finds and launches an application installed on the device by label or package.
      */
     fun openApp(appName: String): Boolean {
         val pm = context.packageManager
@@ -29,20 +66,21 @@ class DeviceToolManager(private val context: Context) {
             return true
         }
 
-        // 2. Search installed applications by label
-        val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
-        var bestMatchPkg: String? = null
-
-        for (app in apps) {
-            val label = pm.getApplicationLabel(app).toString().lowercase()
-            if (label == query || label.contains(query)) {
-                bestMatchPkg = app.packageName
-                break
-            }
+        // 2. Dynamic lookup in installed apps
+        val apps = getInstalledApps()
+        var target = apps.firstOrNull { it.label.equals(query, ignoreCase = true) }
+        if (target == null) {
+            target = apps.firstOrNull { it.label.lowercase().startsWith(query) }
+        }
+        if (target == null) {
+            target = apps.firstOrNull { it.label.lowercase().contains(query) }
+        }
+        if (target == null) {
+            target = apps.firstOrNull { it.packageName.lowercase().contains(query) }
         }
 
-        if (bestMatchPkg != null) {
-            val launchIntent = pm.getLaunchIntentForPackage(bestMatchPkg)
+        if (target != null) {
+            val launchIntent = pm.getLaunchIntentForPackage(target.packageName)
             if (launchIntent != null) {
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(launchIntent)
@@ -50,6 +88,68 @@ class DeviceToolManager(private val context: Context) {
             }
         }
         return false
+    }
+
+    /**
+     * Discovers available App Intents across installed system and user applications.
+     */
+    fun discoverAvailableIntents(): List<DiscoveredIntent> {
+        val pm = context.packageManager
+        val list = mutableListOf<DiscoveredIntent>()
+
+        list.add(DiscoveredIntent(Intent.ACTION_SEND, mimeType = "text/plain", description = "Share text or send message via WhatsApp, Telegram, Gmail, SMS"))
+        list.add(DiscoveredIntent(Intent.ACTION_VIEW, description = "Open URLs, videos, maps, or app deep-links"))
+        list.add(DiscoveredIntent(Intent.ACTION_DIAL, description = "Dial a phone number"))
+        list.add(DiscoveredIntent(Intent.ACTION_WEB_SEARCH, description = "Search the web"))
+        list.add(DiscoveredIntent(AlarmClock.ACTION_SET_TIMER, description = "Set a timer"))
+        list.add(DiscoveredIntent(AlarmClock.ACTION_SET_ALARM, description = "Set an alarm"))
+        list.add(DiscoveredIntent(MediaStore.ACTION_IMAGE_CAPTURE, description = "Take a photo"))
+
+        val sendIntent = Intent(Intent.ACTION_SEND).apply { type = "text/plain" }
+        val sendReceivers = pm.queryIntentActivities(sendIntent, 0)
+        for (r in sendReceivers.take(15)) {
+            val appName = r.loadLabel(pm).toString()
+            list.add(DiscoveredIntent(Intent.ACTION_SEND, mimeType = "text/plain", targetApp = r.activityInfo.packageName, description = "Send text directly via $appName"))
+        }
+
+        return list
+    }
+
+    /**
+     * Executes an Android App Intent with optional parameters, data, and extras.
+     */
+    fun executeAppIntent(
+        action: String,
+        data: String? = null,
+        mimeType: String? = null,
+        packageName: String? = null,
+        extras: Map<String, String>? = null
+    ): Boolean {
+        return try {
+            val intent = Intent(action).apply {
+                if (!data.isNullOrEmpty()) {
+                    if (!mimeType.isNullOrEmpty()) {
+                        setDataAndType(Uri.parse(data), mimeType)
+                    } else {
+                        setData(Uri.parse(data))
+                    }
+                } else if (!mimeType.isNullOrEmpty()) {
+                    type = mimeType
+                }
+                if (!packageName.isNullOrEmpty()) {
+                    setPackage(packageName)
+                }
+                extras?.forEach { (k, v) ->
+                    putExtra(k, v)
+                }
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            true
+        } catch (e: Exception) {
+            Log.e(tag, "Failed to execute intent: $action", e)
+            false
+        }
     }
 
     /**
@@ -174,6 +274,18 @@ class DeviceToolManager(private val context: Context) {
         SayriAccessibilityService.instance?.setTextInField(target, text) ?: false
 
     /**
+     * Parses key="value" attributes from an action string.
+     */
+    private fun parseAttributes(input: String): Map<String, String> {
+        val regex = Regex("([a-zA-Z_]+)=\"([^\"]*)\"")
+        val map = mutableMapOf<String, String>()
+        for (m in regex.findAll(input)) {
+            map[m.groupValues[1]] = m.groupValues[2]
+        }
+        return map
+    }
+
+    /**
      * Parses [ACTION: TYPE param] blocks output by Sayri Core and executes them on device.
      */
     fun parseAndExecuteAction(text: String): Pair<String, Boolean> {
@@ -182,8 +294,45 @@ class DeviceToolManager(private val context: Context) {
         val actionType = match.groupValues[1]
         val param = match.groupValues.getOrNull(2)?.trim() ?: ""
         var executed = false
+
         when (actionType) {
             "OPEN_APP" -> if (param.isNotEmpty()) executed = openApp(param)
+            "CLICK_TEXT" -> if (param.isNotEmpty()) executed = clickScreenElement(param)
+            "CLICK_COORDS" -> {
+                val coords = param.split(Regex("\\s+"))
+                if (coords.size >= 2) {
+                    val x = coords[0].toFloatOrNull() ?: 0f
+                    val y = coords[1].toFloatOrNull() ?: 0f
+                    SayriAccessibilityService.instance?.clickCoordinates(x, y)
+                    executed = true
+                }
+            }
+            "TYPE_TEXT" -> {
+                val parts = param.split(" ", limit = 2)
+                if (parts.size == 2) {
+                    executed = typeTextOnScreen(parts[0], parts[1])
+                }
+            }
+            "SCROLL" -> {
+                val forward = !param.contains("up", ignoreCase = true)
+                executed = SayriAccessibilityService.instance?.scroll(forward) ?: false
+            }
+            "INTENT", "APP_INTENT" -> {
+                val attrs = parseAttributes(param)
+                if (attrs.isNotEmpty()) {
+                    val act = attrs["action"] ?: Intent.ACTION_VIEW
+                    val data = attrs["data"]
+                    val pkg = attrs["pkg"] ?: attrs["package"]
+                    val mime = attrs["type"] ?: attrs["mimeType"]
+                    val extras = mutableMapOf<String, String>()
+                    if (attrs.containsKey("text")) extras[Intent.EXTRA_TEXT] = attrs["text"]!!
+                    if (attrs.containsKey("subject")) extras[Intent.EXTRA_SUBJECT] = attrs["subject"]!!
+                    executed = executeAppIntent(act, data, mime, pkg, extras)
+                } else if (param.startsWith("SEND", ignoreCase = true)) {
+                    val body = param.substringAfter("SEND", "").trim().removeSurrounding("\"")
+                    executed = executeAppIntent(Intent.ACTION_SEND, mimeType = "text/plain", extras = mapOf(Intent.EXTRA_TEXT to body))
+                }
+            }
             "FLASHLIGHT" -> executed = setFlashlight(param.equals("on", ignoreCase = true) || param.equals("true", ignoreCase = true) || param.contains("enciende", ignoreCase = true))
             "TIMER" -> {
                 val sec = param.split(" ").firstOrNull()?.toIntOrNull() ?: 300
@@ -201,6 +350,7 @@ class DeviceToolManager(private val context: Context) {
             "WEB" -> if (param.isNotEmpty()) executed = openWeb(param)
             "NAVIGATE" -> if (param.isNotEmpty()) executed = openNavigation(param)
         }
+
         val cleanText = text.replace(match.value, "").trim()
         return Pair(cleanText, executed)
     }

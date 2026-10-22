@@ -175,6 +175,27 @@ class SayriAccessibilityService : AccessibilityService() {
     fun openRecents(): Boolean = performGlobalAction(GLOBAL_ACTION_RECENTS)
 
     /**
+     * Performs vertical scrolling on active window.
+     */
+    fun scroll(forward: Boolean): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val action = if (forward) AccessibilityNodeInfo.ACTION_SCROLL_FORWARD else AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
+
+        fun findScrollable(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+            if (node == null) return null
+            if (node.isScrollable) return node
+            for (i in 0 until node.childCount) {
+                val found = findScrollable(node.getChild(i))
+                if (found != null) return found
+            }
+            return null
+        }
+
+        val target = findScrollable(root)
+        return target?.performAction(action) ?: false
+    }
+
+    /**
      * Captures a real screenshot of the screen for Vision and Circle to Search.
      */
     fun captureScreenshot(onResult: (android.graphics.Bitmap?) -> Unit) {

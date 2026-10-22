@@ -277,7 +277,9 @@ class AssistActivity : ComponentActivity() {
                         val textContext = textElements.joinToString(" ").trim()
 
                         val query = if (textContext.isNotEmpty()) {
-                            "[Mobile Screen Perception] The user circled this text on their phone screen: \"$textContext\". Explain what it is or answer the question about it."
+                            val cX = ((bounds.left + bounds.right) / 2).toInt()
+                            val cY = ((bounds.top + bounds.bottom) / 2).toInt()
+                            "[Mobile Circle to Search & OCR]\nThe user circled this text on their phone screen: \"$textContext\".\nRegion: center=($cX, $cY), bounds=[${bounds.left.toInt()}, ${bounds.top.toInt()} to ${bounds.right.toInt()}, ${bounds.bottom.toInt()}].\nExplain what this is, or interact with it using [ACTION: CLICK_TEXT \"$textContext\"] or [ACTION: CLICK_COORDS $cX $cY]."
                         } else {
                             "[Mobile Screen Perception] The user circled an area on their mobile screen. (Note: Image perception is currently disabled; no text was found in the area)."
                         }
