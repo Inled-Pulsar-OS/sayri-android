@@ -61,8 +61,30 @@ class CajitaCardView @JvmOverloads constructor(
         }
     }
 
+    var maxCardHeight: Int = -1
+        set(value) {
+            field = value
+            requestLayout()
+        }
+
     init {
         setWillNotDraw(false)
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val hSpec = if (maxCardHeight > 0) {
+            val mode = MeasureSpec.getMode(heightMeasureSpec)
+            val size = MeasureSpec.getSize(heightMeasureSpec)
+            val constrained = if (mode == MeasureSpec.UNSPECIFIED) {
+                maxCardHeight
+            } else {
+                minOf(size, maxCardHeight)
+            }
+            MeasureSpec.makeMeasureSpec(constrained, MeasureSpec.AT_MOST)
+        } else {
+            heightMeasureSpec
+        }
+        super.onMeasure(widthMeasureSpec, hSpec)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {

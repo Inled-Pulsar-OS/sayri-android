@@ -31,6 +31,7 @@ class AssistActivity : ComponentActivity() {
     private val conversationHistory = mutableListOf<ChatRoleMessage>()
     private val assistSessionId = "mobile-assist-${java.util.UUID.randomUUID()}"
     private var lastInputWasVoice: Boolean = false
+    private var isProcessingOrSpeaking: Boolean = false
 
     private val requestAudioPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -112,6 +113,7 @@ class AssistActivity : ComponentActivity() {
         }
 
         setupListeners()
+        setupCardDimensions()
 
         // Auto start listening on assist invocation
         binding.root.postDelayed({
@@ -119,7 +121,24 @@ class AssistActivity : ComponentActivity() {
         }, 200)
     }
 
+    private fun setupCardDimensions() {
+        val screenHeight = resources.displayMetrics.heightPixels
+        val halfScreen = screenHeight / 2
+        binding.cajitaCard.maxCardHeight = halfScreen
+
+        // Calculate max allowed height for scrollAssistResponse:
+        // Non-scrollable controls take ~210dp:
+        val density = resources.displayMetrics.density
+        val chromeHeightPx = (210 * density).toInt()
+        val maxScrollHeight = (halfScreen - chromeHeightPx).coerceAtLeast((130 * density).toInt())
+        binding.scrollAssistResponse.maxHeightPx = maxScrollHeight
+    }
+
     private fun startVoiceCapture() {
+        if (isProcessingOrSpeaking || voiceManager.isSpeakingOrPlaying()) {
+            android.util.Log.d("AssistActivity", "startVoiceCapture rejected: assistant is still processing or speaking.")
+            return
+        }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             lastInputWasVoice = true
             voiceManager.startListening(allowIntentFallback = false)
@@ -177,16 +196,21 @@ class AssistActivity : ComponentActivity() {
         binding.btnAssistStopTts.setOnClickListener {
             voiceManager.stopSpeaking()
             binding.btnAssistStopTts.visibility = View.GONE
+            binding.cajitaCard.mode = "idle"
+            isProcessingOrSpeaking = false
         }
 
         binding.btnAssistVoice.setOnClickListener {
-            if (voiceManager.isCurrentlyListening) {
-                voiceManager.stopListening()
-            } else if (voiceManager.isSpeaking) {
+            if (voiceManager.isSpeakingOrPlaying()) {
                 voiceManager.stopSpeaking()
                 binding.btnAssistStopTts.visibility = View.GONE
                 binding.cajitaCard.mode = "idle"
+                isProcessingOrSpeaking = false
+                startVoiceCapture()
+            } else if (voiceManager.isCurrentlyListening) {
+                voiceManager.stopListening()
             } else {
+                isProcessingOrSpeaking = false
                 startVoiceCapture()
             }
         }
@@ -305,13 +329,14 @@ class AssistActivity : ComponentActivity() {
 
     private fun handleUserQuery(query: String, isVoice: Boolean) {
         lastInputWasVoice = isVoice
+        voiceManager.stopListening()
+        isProcessingOrSpeaking = true
         val lower = query.lowercase().trim()
 
         // 1. Direct local execution for instant mobile tools
-        if (lower.startsWith("open ") || lower.startsWith("abre ") || lower.startsWith("abrir ")) {
-            val appTarget = query.substring(5).trim()
-            if (toolManager.openApp(appTarget)) {
-                val reply = "Opening $appTarget..."
+        if (lower.startsWith("open ") || lower.startsWith("abre ") || lower.startsWith("abrir ") || lower.startsWith("lanza ") || lower.startsWith("inicia ")) {
+            if (toolManager.openApp(query)) {
+                val reply = "Opening app..."
                 binding.tvAssistStatus.text = query
                 binding.tvAssistTranscription.visibility = View.VISIBLE
                 binding.tvAssistTranscription.text = reply
@@ -321,9 +346,12 @@ class AssistActivity : ComponentActivity() {
                     binding.btnAssistStopTts.visibility = View.VISIBLE
                     voiceManager.speak(reply) {
                         runOnUiThread {
+                            isProcessingOrSpeaking = false
                             binding.btnAssistStopTts.visibility = View.GONE
                         }
                     }
+                } else {
+                    isProcessingOrSpeaking = false
                 }
                 return
             }
@@ -340,9 +368,12 @@ class AssistActivity : ComponentActivity() {
                 binding.btnAssistStopTts.visibility = View.VISIBLE
                 voiceManager.speak(msg) {
                     runOnUiThread {
+                        isProcessingOrSpeaking = false
                         binding.btnAssistStopTts.visibility = View.GONE
                     }
                 }
+            } else {
+                isProcessingOrSpeaking = false
             }
             return
         }
@@ -352,6 +383,7 @@ class AssistActivity : ComponentActivity() {
     }
 
     private fun processQuery(query: String, isVoice: Boolean) {
+        isProcessingOrSpeaking = true
         binding.cajitaCard.mode = "thinking"
         val displayQuery = if (query.contains("data:image/")) {
             val note = query.substringAfterLast("\n\n").take(120)
@@ -384,23 +416,29 @@ class AssistActivity : ComponentActivity() {
                     binding.tvAssistTranscription.text = MarkdownRenderer.render(cleanRes)
 
                     if (isVoice) {
+                        isProcessingOrSpeaking = true
                         binding.cajitaCard.mode = "speaking"
                         binding.btnAssistStopTts.visibility = View.VISIBLE
                         voiceManager.speak(cleanRes) {
                             runOnUiThread {
+                                isProcessingOrSpeaking = false
                                 binding.cajitaCard.mode = "idle"
                                 binding.btnAssistStopTts.visibility = View.GONE
-                                // Reopen mic to listen for user continuation!
-                                startVoiceCapture()
+                                // Reopen mic ONLY after dictation has fully completed!
+                                if (!isFinishing && !isDestroyed) {
+                                    startVoiceCapture()
+                                }
                             }
                         }
                     } else {
+                        isProcessingOrSpeaking = false
                         binding.cajitaCard.mode = "idle"
                     }
                 }
             },
             onError = { err ->
                 runOnUiThread {
+                    isProcessingOrSpeaking = false
                     binding.cajitaCard.mode = "idle"
                     binding.btnAssistStopTts.visibility = View.GONE
                     val msg = if (err.message?.contains("401") == true) {

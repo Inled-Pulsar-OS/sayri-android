@@ -60,6 +60,12 @@ class VoiceManager(
     var isCurrentlyListening: Boolean = false
         private set
 
+    @Volatile private var isTtsInitialized: Boolean = false
+
+    fun isSpeakingOrPlaying(): Boolean {
+        return isSpeaking || (mediaPlayer?.isPlaying == true)
+    }
+
     private var audioRecord: AudioRecord? = null
     private var recordingThread: Thread? = null
     @Volatile private var isRecording: Boolean = false
@@ -78,8 +84,10 @@ class VoiceManager(
             return
         }
 
-        if (isSpeaking) {
-            stopSpeaking()
+        // Under NO circumstance reactivate mic while TTS voice dictation is playing!
+        if (isSpeakingOrPlaying()) {
+            Log.d(tag, "startListening ignored: speech playback is currently active.")
+            return
         }
 
         if (isCurrentlyListening) {
@@ -122,9 +130,16 @@ class VoiceManager(
                             override fun onBufferReceived(buffer: ByteArray?) {}
                             override fun onEndOfSpeech() {}
                             override fun onError(error: Int) {
-                                Log.w(tag, "SpeechRecognizer error code: $error, falling back to AudioRecord")
+                                Log.w(tag, "SpeechRecognizer error code: $error")
                                 isCurrentlyListening = false
                                 mainHandler.post { onStateChange(false) }
+                                if (isSpeakingOrPlaying()) {
+                                    return
+                                }
+                                if (error == android.speech.SpeechRecognizer.ERROR_NO_MATCH || 
+                                    error == android.speech.SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+                                    return
+                                }
                                 try { speechRecognizer?.destroy() } catch (_: Throwable) {}
                                 speechRecognizer = null
                                 startAudioRecordListening(allowIntentFallback = false)
@@ -170,6 +185,10 @@ class VoiceManager(
     }
 
     private fun startAudioRecordListening(allowIntentFallback: Boolean = false) {
+        if (isSpeakingOrPlaying()) {
+            Log.d(tag, "startAudioRecordListening ignored: TTS playback is active.")
+            return
+        }
         if (isRecording) return
 
         val minBufSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
@@ -490,6 +509,19 @@ class VoiceManager(
     }
 
     private fun speakLocalTts(cleanSpeech: String, onDone: (() -> Unit)? = null) {
+        if (!isTtsInitialized) {
+            mainHandler.postDelayed({
+                if (isTtsInitialized) {
+                    speakLocalTts(cleanSpeech, onDone)
+                } else {
+                    isSpeaking = false
+                    onDone?.invoke()
+                }
+            }, 300)
+            return
+        }
+
+        isSpeaking = true
         val utteranceId = "sayri-tts-${System.currentTimeMillis()}"
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {
@@ -502,7 +534,7 @@ class VoiceManager(
                     onDone?.invoke()
                     if (isLiveMode) {
                         mainHandler.postDelayed({
-                            if (isLiveMode && !isSpeaking && !isCurrentlyListening) {
+                            if (isLiveMode && !isSpeakingOrPlaying() && !isCurrentlyListening) {
                                 startListening(allowIntentFallback = false)
                             }
                         }, 500)
@@ -527,6 +559,7 @@ class VoiceManager(
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             tts?.language = Locale.getDefault()
+            isTtsInitialized = true
         }
     }
 

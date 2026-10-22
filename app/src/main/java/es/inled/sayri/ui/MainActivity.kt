@@ -480,11 +480,10 @@ class MainActivity : AppCompatActivity() {
         lastInputWasVoice = isVoice
         val lower = query.lowercase().trim()
 
-        if (lower.startsWith("open ") || lower.startsWith("abre ") || lower.startsWith("abrir ")) {
-            val appTarget = query.substring(5).trim()
-            if (toolManager.openApp(appTarget)) {
+        if (lower.startsWith("open ") || lower.startsWith("abre ") || lower.startsWith("abrir ") || lower.startsWith("lanza ") || lower.startsWith("inicia ")) {
+            if (toolManager.openApp(query)) {
                 adapter.addMessage(ChatMessage(author = "You", content = query, isUser = true))
-                val reply = "Opening $appTarget..."
+                val reply = "Opening app..."
                 adapter.addMessage(ChatMessage(author = "Sayri", content = reply, isUser = false))
                 if (isVoice) {
                     voiceManager.speak(reply) {

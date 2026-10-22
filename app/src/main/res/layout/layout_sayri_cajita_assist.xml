@@ -128,12 +128,12 @@
                 android:textStyle="bold"
                 android:layout_marginBottom="8dp" />
 
-            <!-- Large Assistant Response in ScrollView for Maximum Screen Utility -->
-            <androidx.core.widget.NestedScrollView
+            <!-- Large Assistant Response in MaxHeightScrollView with internal scrolling -->
+            <es.inled.sayri.ui.MaxHeightScrollView
                 android:id="@+id/scrollAssistResponse"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:maxHeight="280dp"
+                android:scrollbars="vertical"
                 android:fadeScrollbars="false"
                 android:layout_marginBottom="12dp">
 
@@ -146,7 +146,7 @@
                     android:lineSpacingExtra="4dp"
                     android:textIsSelectable="true"
                     android:visibility="gone" />
-            </androidx.core.widget.NestedScrollView>
+            </es.inled.sayri.ui.MaxHeightScrollView>
 
             <!-- Feature Action Row: Voice, Circle to Search, Camera -->
             <LinearLayout

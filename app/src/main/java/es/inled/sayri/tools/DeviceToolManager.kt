@@ -51,32 +51,59 @@ class DeviceToolManager(private val context: Context) {
         }.distinctBy { it.packageName }.sortedBy { it.label }
     }
 
+    private fun normalizeString(s: String): String {
+        return java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+            .lowercase()
+            .trim()
+    }
+
     /**
-     * Finds and launches an application installed on the device by label or package.
+     * Finds and launches an application installed on the device dynamically by label or package.
      */
     fun openApp(appName: String): Boolean {
         val pm = context.packageManager
-        val query = appName.trim().lowercase()
+        val raw = appName.trim().lowercase()
+
+        // Strip common command verbs and articles
+        val query = raw
+            .replace(Regex("^(abre|abrir|open|lanza|lanzar|ejecuta|ejecutar|inicia|iniciar)\\s+"), "")
+            .replace(Regex("^(la\\s+app\\s+de|la\\s+aplicacion\\s+de|la\\s+aplicación\\s+de|el\\s+|la\\s+|los\\s+|las\\s+|the\\s+|app\\s+|app\\s+de\\s+)"), "")
+            .trim()
+
+        if (query.isEmpty()) return false
+        val normQuery = normalizeString(query)
+
+        Log.i(tag, "Attempting to open app: '$appName' (normalized: '$normQuery')")
 
         // 1. Direct package match
-        val directIntent = pm.getLaunchIntentForPackage(appName)
+        val directIntent = pm.getLaunchIntentForPackage(query)
         if (directIntent != null) {
             directIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(directIntent)
             return true
         }
 
-        // 2. Dynamic lookup in installed apps
+        // 2. Dynamic lookup in installed launcher applications
         val apps = getInstalledApps()
+        
+        // Exact label match (with and without accent normalization)
         var target = apps.firstOrNull { it.label.equals(query, ignoreCase = true) }
+            ?: apps.firstOrNull { normalizeString(it.label) == normQuery }
+
+        // Starts-with match
         if (target == null) {
-            target = apps.firstOrNull { it.label.lowercase().startsWith(query) }
+            target = apps.firstOrNull { normalizeString(it.label).startsWith(normQuery) }
         }
+
+        // Substring / contains match
         if (target == null) {
-            target = apps.firstOrNull { it.label.lowercase().contains(query) }
+            target = apps.firstOrNull { normalizeString(it.label).contains(normQuery) }
         }
+
+        // Package name match
         if (target == null) {
-            target = apps.firstOrNull { it.packageName.lowercase().contains(query) }
+            target = apps.firstOrNull { it.packageName.lowercase().contains(normQuery) }
         }
 
         if (target != null) {
@@ -84,9 +111,12 @@ class DeviceToolManager(private val context: Context) {
             if (launchIntent != null) {
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(launchIntent)
+                Log.i(tag, "Successfully launched: ${target.label} (${target.packageName})")
                 return true
             }
         }
+
+        Log.w(tag, "No installed app found matching '$query' among ${apps.size} packages")
         return false
     }
 
