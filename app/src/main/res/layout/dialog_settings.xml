@@ -25,7 +25,7 @@
             style="@style/Widget.Material3.Button.TonalButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="🔍 Escanear Red (Detectar Pulsar OS)"
+            android:text="Scan Network (Discover Sayri PC)"
             android:layout_marginBottom="12dp" />
 
         <TextView
@@ -78,21 +78,63 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/api_key"
+            android:text="Pairing PIN (6 digits shown on Desktop)"
             android:textColor="#CAC4D0"
             android:textSize="13sp"
             android:layout_marginBottom="4dp" />
 
-        <EditText
-            android:id="@+id/etApiKey"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/bg_cajita_pill"
-            android:padding="12dp"
-            android:textColor="#FFFFFF"
-            android:hint="(Opcional)"
-            android:inputType="textPassword"
+            android:orientation="horizontal"
+            android:layout_marginBottom="6dp">
+
+            <EditText
+                android:id="@+id/etPin"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@drawable/bg_cajita_pill"
+                android:padding="12dp"
+                android:textColor="#FFFFFF"
+                android:hint="e.g. 812234"
+                android:inputType="number"
+                android:maxLength="6"
+                android:layout_marginEnd="8dp" />
+
+            <TextView
+                android:id="@+id/btnPairPin"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_cajita_btn_primary"
+                android:gravity="center"
+                android:text="Pair"
+                android:textColor="#FFFFFF"
+                android:textSize="12.5sp"
+                android:textStyle="bold"
+                android:paddingHorizontal="16dp"
+                android:clickable="true"
+                android:focusable="true" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvPairStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#94A3B8"
+            android:textSize="11.5sp"
+            android:text="Check PIN in Cajita Desktop -> Mobile tab"
             android:layout_marginBottom="16dp" />
+
+        <!-- Voice Confirmation Setting -->
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/switchConfirmVoice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ask before sending voice"
+            android:textColor="#FFFFFF"
+            android:textSize="13.5sp"
+            android:layout_marginBottom="14dp" />
 
         <!-- System Integrations -->
         <com.google.android.material.button.MaterialButton
@@ -100,7 +142,7 @@
             style="@style/Widget.Material3.Button.OutlinedButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="⭐ Asistente Predeterminado del Sistema"
+            android:text="System Default Assistant Settings"
             android:layout_marginBottom="10dp" />
 
         <com.google.android.material.button.MaterialButton
@@ -108,7 +150,7 @@
             style="@style/Widget.Material3.Button.OutlinedButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="🛡️ Configurar Servicio de Accesibilidad"
+            android:text="Configure Accessibility Service"
             android:layout_marginBottom="8dp" />
 
     </LinearLayout>

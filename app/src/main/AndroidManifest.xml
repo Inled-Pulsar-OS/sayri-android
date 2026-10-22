@@ -48,10 +48,21 @@
             android:name=".ui.AssistActivity"
             android:theme="@style/Theme.Sayri.Assist"
             android:exported="true"
-            android:excludeFromRecents="true"
-            android:noHistory="true">
+            android:excludeFromRecents="true">
             <intent-filter>
                 <action android:name="android.intent.action.ASSIST" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- System Speech Recognition / Dictation Activity -->
+        <activity
+            android:name=".ui.DictationActivity"
+            android:theme="@style/Theme.Sayri.Assist"
+            android:exported="true"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>

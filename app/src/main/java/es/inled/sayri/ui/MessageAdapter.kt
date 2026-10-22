@@ -2,6 +2,7 @@ package es.inled.sayri.ui
 
 import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import androidx.core.content.ContextCompat
@@ -30,7 +31,7 @@ class MessageAdapter(private val messages: MutableList<ChatMessage> = mutableLis
         val context = holder.itemView.context
 
         holder.binding.tvAuthor.text = msg.author
-        holder.binding.tvContent.text = msg.content
+        holder.binding.tvContent.text = MarkdownRenderer.render(msg.content)
 
         val parentLayout = holder.itemView as LinearLayout
         val card = holder.binding.cardMessage
@@ -40,15 +41,42 @@ class MessageAdapter(private val messages: MutableList<ChatMessage> = mutableLis
             card.setCardBackgroundColor(ContextCompat.getColor(context, R.color.bubble_user))
             holder.binding.tvAuthor.setTextColor(ContextCompat.getColor(context, R.color.bubble_user_text))
             holder.binding.tvContent.setTextColor(ContextCompat.getColor(context, R.color.bubble_user_text))
+            holder.binding.btnCopyMessage.visibility = View.GONE
         } else {
             parentLayout.gravity = Gravity.START
             card.setCardBackgroundColor(ContextCompat.getColor(context, R.color.bubble_sayri))
             holder.binding.tvAuthor.setTextColor(ContextCompat.getColor(context, R.color.accent_teal))
             holder.binding.tvContent.setTextColor(ContextCompat.getColor(context, R.color.bubble_sayri_text))
+            holder.binding.btnCopyMessage.visibility = if (msg.content.isNotBlank() && msg.content != "...") View.VISIBLE else View.GONE
+        }
+
+        val copyAction = View.OnClickListener {
+            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            val clip = android.content.ClipData.newPlainText("Sayri Message", msg.content)
+            clipboard.setPrimaryClip(clip)
+            android.widget.Toast.makeText(context, "Copied to clipboard", android.widget.Toast.LENGTH_SHORT).show()
+        }
+
+        holder.binding.btnCopyMessage.setOnClickListener(copyAction)
+        card.setOnLongClickListener {
+            copyAction.onClick(it)
+            true
         }
     }
 
     override fun getItemCount(): Int = messages.size
+
+    fun clear() {
+        val count = messages.size
+        messages.clear()
+        notifyDataSetChanged()
+    }
+
+    fun setMessages(list: List<ChatMessage>) {
+        messages.clear()
+        messages.addAll(list)
+        notifyDataSetChanged()
+    }
 
     fun addMessage(message: ChatMessage) {
         messages.add(message)

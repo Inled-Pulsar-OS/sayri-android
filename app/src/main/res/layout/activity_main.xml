@@ -6,14 +6,15 @@
     android:layout_height="match_parent"
     android:background="@color/sayri_background">
 
-    <!-- Top Sayri Cajita Header with Animated Orb -->
+    <!-- Top Sayri Header without Orb (Connection and Session controls) -->
     <LinearLayout
         android:id="@+id/headerLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp"
-        android:gravity="center_horizontal"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="10dp"
         android:background="#F00D1424"
         app:layout_constraintTop_toTopOf="parent">
 
@@ -21,51 +22,85 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
-            <ImageView
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:src="@drawable/ic_sayri_logo"
-                android:layout_alignParentStart="true"
-                android:layout_centerVertical="true"
-                android:contentDescription="Sayri" />
-
-            <TextView
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Sayri"
-                android:textColor="#FFFFFF"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:layout_centerInParent="true" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true">
 
-            <ImageButton
-                android:id="@+id/btnSettings"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                <ImageView
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:src="@drawable/sayri_logo"
+                    android:contentDescription="Sayri" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginStart="10dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Sayri"
+                        android:textColor="#FFFFFF"
+                        android:textSize="17sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Pulsar OS • Connecting..."
+                        android:textColor="@color/cajita_accent_cyan"
+                        android:textSize="11.5sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
                 android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@android:drawable/ic_menu_preferences"
-                app:tint="#CAC4D0"
-                android:contentDescription="Settings" />
+                android:layout_centerVertical="true">
+
+                <!-- New Conversation Button -->
+                <ImageButton
+                    android:id="@+id/btnNewChat"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_input_add"
+                    app:tint="@color/cajita_accent_cyan"
+                    android:contentDescription="New Chat" />
+
+                <!-- History Button -->
+                <ImageButton
+                    android:id="@+id/btnHistory"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="4dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_recent_history"
+                    app:tint="@color/cajita_text_secondary"
+                    android:contentDescription="History" />
+
+                <!-- Settings Button -->
+                <ImageButton
+                    android:id="@+id/btnSettings"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="4dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_preferences"
+                    app:tint="@color/cajita_text_secondary"
+                    android:contentDescription="Settings" />
+            </LinearLayout>
         </RelativeLayout>
-
-        <!-- Animated Iridescent Sayri Orb -->
-        <es.inled.sayri.ui.SayriOrbView
-            android:id="@+id/mainOrb"
-            android:layout_width="88dp"
-            android:layout_height="88dp"
-            android:layout_marginTop="12dp"
-            android:layout_marginBottom="8dp" />
-
-        <TextView
-            android:id="@+id/tvStatus"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Escaneando red local..."
-            android:textColor="@color/accent_teal"
-            android:textSize="13sp"
-            android:textStyle="bold" />
 
         <!-- Auto-Discovery Quick Connect Banner -->
         <LinearLayout
@@ -77,7 +112,7 @@
             android:background="@drawable/bg_cajita_pill"
             android:paddingHorizontal="14dp"
             android:paddingVertical="6dp"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="8dp"
             android:visibility="gone">
 
             <TextView
@@ -85,18 +120,23 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Detectado Pulsar OS (172.16.180.141)"
+                android:text="Discovered Sayri PC"
                 android:textColor="#FFFFFF"
                 android:textSize="12sp" />
 
-            <com.google.android.material.button.MaterialButton
+            <TextView
                 android:id="@+id/btnQuickConnect"
-                style="@style/Widget.Material3.Button.TonalButton"
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="Conectar"
-                android:textSize="11sp"
-                android:paddingHorizontal="12dp" />
+                android:layout_height="30dp"
+                android:background="@drawable/bg_cajita_btn_primary"
+                android:gravity="center"
+                android:text="Connect"
+                android:textColor="#FFFFFF"
+                android:textSize="11.5sp"
+                android:textStyle="bold"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true" />
         </LinearLayout>
     </LinearLayout>
 
@@ -108,7 +148,99 @@
         android:padding="12dp"
         android:clipToPadding="false"
         app:layout_constraintTop_toBottomOf="@id/headerLayout"
-        app:layout_constraintBottom_toTopOf="@id/suggestionsScroll" />
+        app:layout_constraintBottom_toTopOf="@id/layoutStopTts" />
+
+    <!-- Active TTS Indicator and Stop Button -->
+    <LinearLayout
+        android:id="@+id/layoutStopTts"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp"
+        android:background="#2E1E74FB"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/layoutAttachedPhoto">
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@android:drawable/ic_lock_silent_mode_off"
+            app:tint="@color/cajita_accent_cyan"
+            android:contentDescription="Speech active" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="10dp"
+            android:text="Sayri is speaking..."
+            android:textColor="#FFFFFF"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/btnStopTts"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:background="@drawable/bg_cajita_btn"
+            android:gravity="center"
+            android:text="Stop Audio"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:paddingHorizontal="14dp"
+            android:clickable="true"
+            android:focusable="true" />
+    </LinearLayout>
+
+    <!-- Attached Photo Preview Banner -->
+    <LinearLayout
+        android:id="@+id/layoutAttachedPhoto"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="6dp"
+        android:background="#1C18233C"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/suggestionsScroll">
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="@android:color/transparent">
+
+            <ImageView
+                android:id="@+id/ivAttachedPhoto"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:contentDescription="Attached photo" />
+        </androidx.cardview.widget.CardView>
+
+        <TextView
+            android:id="@+id/tvAttachedPhotoLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="10dp"
+            android:text="Image attached"
+            android:textColor="@color/cajita_accent_cyan"
+            android:textSize="12sp" />
+
+        <ImageButton
+            android:id="@+id/btnRemovePhoto"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            app:tint="@color/cajita_text_secondary"
+            android:contentDescription="Remove photo" />
+    </LinearLayout>
 
     <!-- Subtle Suggestion Chips -->
     <HorizontalScrollView
@@ -130,7 +262,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_cajita_pill"
-                android:text="📱 ¿Qué hay en mi pantalla?"
+                android:text="What is on my screen?"
                 android:textColor="#E6E1E5"
                 android:textSize="12sp"
                 android:paddingHorizontal="12dp"
@@ -142,7 +274,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_cajita_pill"
-                android:text="💡 Guarda esta idea..."
+                android:text="Save idea"
                 android:textColor="#E6E1E5"
                 android:textSize="12sp"
                 android:paddingHorizontal="12dp"
@@ -154,7 +286,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_cajita_pill"
-                android:text="📅 Recuérdame mañana..."
+                android:text="Remind tomorrow"
                 android:textColor="#E6E1E5"
                 android:textSize="12sp"
                 android:paddingHorizontal="12dp"
@@ -166,7 +298,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_cajita_pill"
-                android:text="⏱️ Temporizador 5 min"
+                android:text="Timer 5 min"
                 android:textColor="#E6E1E5"
                 android:textSize="12sp"
                 android:paddingHorizontal="12dp"
@@ -186,9 +318,18 @@
         app:layout_constraintBottom_toBottomOf="parent">
 
         <ImageButton
+            android:id="@+id/btnAttachPhoto"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_camera"
+            app:tint="@color/cajita_accent_cyan"
+            android:contentDescription="Attach Photo" />
+
+        <ImageButton
             android:id="@+id/btnVoice"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_btn_speak_now"
             app:tint="@color/accent_teal"
@@ -199,9 +340,9 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginHorizontal="8dp"
+            android:layout_marginHorizontal="6dp"
             android:background="@drawable/bg_cajita_pill"
-            android:paddingHorizontal="16dp"
+            android:paddingHorizontal="14dp"
             android:paddingVertical="10dp"
             android:textColor="#FFFFFF"
             android:textColorHint="#88FFFFFF"
@@ -211,8 +352,8 @@
 
         <ImageButton
             android:id="@+id/btnSend"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_send"
             app:tint="@color/accent_teal"

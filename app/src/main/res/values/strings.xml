@@ -1,15 +1,15 @@
 <resources>
     <string name="app_name">Sayri</string>
     <string name="accessibility_service_description">Sayri Companion Accessibility Service enables screen perception and autonomous mobile assistance paired with your PC.</string>
-    <string name="btn_send">Enviar</string>
-    <string name="hint_message">Habla o escribe a Sayri...</string>
-    <string name="btn_save_idea">💡 Guardar Idea</string>
-    <string name="btn_add_tomorrow">📅 Recordar Mañana</string>
-    <string name="btn_screen_assist">📱 Percibir Pantalla</string>
-    <string name="settings_title">Ajustes de Conexión</string>
-    <string name="server_host">IP del Servidor Sayri (PC)</string>
-    <string name="server_port">Puerto (por defecto 8765)</string>
-    <string name="api_key">Clave API (opcional)</string>
-    <string name="accessibility_status_on">Accesibilidad: Activa ✅</string>
-    <string name="accessibility_status_off">Accesibilidad: Inactiva ⚠️ (Toca para habilitar)</string>
+    <string name="btn_send">Send</string>
+    <string name="hint_message">Ask or say anything to Sayri...</string>
+    <string name="btn_save_idea">Save Idea</string>
+    <string name="btn_add_tomorrow">Remind Tomorrow</string>
+    <string name="btn_screen_assist">What is on my screen?</string>
+    <string name="settings_title">Connection Settings</string>
+    <string name="server_host">Sayri PC Server Host / IP</string>
+    <string name="server_port">Port (default 8765)</string>
+    <string name="api_key">API Key (optional)</string>
+    <string name="accessibility_status_on">Accessibility: Active</string>
+    <string name="accessibility_status_off">Accessibility: Inactive (Tap to configure)</string>
 </resources>

@@ -13,7 +13,40 @@ data class ChatMessage(
 data class ChatCompletionRequest(
     val model: String = "sayri",
     val messages: List<ChatRoleMessage>,
-    val stream: Boolean = true
+    val stream: Boolean = true,
+    @SerializedName("session_id") val sessionId: String? = null
+)
+
+data class SessionSummary(
+    val id: String,
+    val title: String,
+    @SerializedName("agent_id") val agentId: String,
+    @SerializedName("created_at") val createdAt: Double,
+    @SerializedName("updated_at") val updatedAt: Double,
+    @SerializedName("msg_count") val msgCount: Int
+)
+
+data class SessionListResponse(
+    val sessions: List<SessionSummary>
+)
+
+data class SessionDetailResponse(
+    val session: SessionDetail
+)
+
+data class SessionDetail(
+    val id: String,
+    val title: String,
+    @SerializedName("agent_id") val agentId: String,
+    @SerializedName("created_at") val createdAt: Double,
+    @SerializedName("updated_at") val updatedAt: Double,
+    val messages: List<SessionMessage>
+)
+
+data class SessionMessage(
+    val role: String,
+    val content: String,
+    val timestamp: Double = 0.0
 )
 
 data class ChatRoleMessage(

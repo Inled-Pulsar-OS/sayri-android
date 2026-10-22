@@ -14,8 +14,9 @@ class SayriApp : Application() {
         const val KEY_HOST = "key_host"
         const val KEY_PORT = "key_port"
         const val KEY_API_KEY = "key_api_key"
+        const val KEY_CONFIRM_VOICE = "key_confirm_voice"
 
-        const val DEFAULT_HOST = "172.16.180.141"
+        const val DEFAULT_HOST = "127.0.0.1"
         const val DEFAULT_PORT = 8765
     }
 
@@ -34,6 +35,10 @@ class SayriApp : Application() {
     var apiKey: String
         get() = prefs.getString(KEY_API_KEY, "") ?: ""
         set(value) = prefs.edit().putString(KEY_API_KEY, value.trim()).apply()
+
+    var confirmVoiceBeforeSending: Boolean
+        get() = prefs.getBoolean(KEY_CONFIRM_VOICE, false)
+        set(value) = prefs.edit().putBoolean(KEY_CONFIRM_VOICE, value).apply()
 
     val baseUrl: String
         get() = "http://$serverHost:$serverPort"

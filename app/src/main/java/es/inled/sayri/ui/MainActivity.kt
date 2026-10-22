@@ -5,8 +5,11 @@ import android.content.DialogInterface
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Base64
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.Toast
@@ -16,12 +19,14 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import es.inled.sayri.R
 import es.inled.sayri.SayriApp
 import es.inled.sayri.api.SayriApiClient
 import es.inled.sayri.data.ChatMessage
 import es.inled.sayri.data.ChatRoleMessage
 import es.inled.sayri.databinding.ActivityMainBinding
+import es.inled.sayri.databinding.DialogHistoryBinding
 import es.inled.sayri.databinding.DialogSettingsBinding
 import es.inled.sayri.net.NetworkDiscovery
 import es.inled.sayri.service.SayriAccessibilityService
@@ -29,6 +34,8 @@ import es.inled.sayri.tools.DeviceToolManager
 import es.inled.sayri.voice.VoiceManager
 import kotlinx.coroutines.launch
 import okhttp3.sse.EventSource
+import java.io.ByteArrayOutputStream
+import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
 
@@ -41,14 +48,20 @@ class MainActivity : AppCompatActivity() {
     private var currentSse: EventSource? = null
 
     private val conversationHistory = mutableListOf<ChatRoleMessage>()
+    private var currentSessionId: String = "mobile-${UUID.randomUUID()}"
+
+    private var lastInputWasVoice = false
+
+    private var attachedPhotoBitmap: Bitmap? = null
+    private var attachedPhotoBase64: String? = null
 
     private val requestAudioPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            voiceManager.startListening()
+            triggerVoice()
         } else {
-            Toast.makeText(this, "Permiso de micrófono requerido", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Microphone permission is required", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -56,7 +69,24 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.TakePicturePreview()
     ) { bitmap: Bitmap? ->
         if (bitmap != null) {
-            handleCapturedPhoto(bitmap)
+            setAttachedPhoto(bitmap)
+        }
+    }
+
+    private val pickImageLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                contentResolver.openInputStream(uri)?.use { stream ->
+                    val bitmap = BitmapFactory.decodeStream(stream)
+                    if (bitmap != null) {
+                        setAttachedPhoto(bitmap)
+                    }
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this, "Failed to load selected image", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -70,50 +100,101 @@ class MainActivity : AppCompatActivity() {
             stackFromEnd = true
         }
         binding.rvMessages.adapter = adapter
+        adapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
+            override fun onItemRangeInserted(positionStart: Int, itemCount: Int) {
+                binding.rvMessages.scrollToPosition(adapter.itemCount - 1)
+            }
+            override fun onItemRangeChanged(positionStart: Int, itemCount: Int) {
+                binding.rvMessages.scrollToPosition(adapter.itemCount - 1)
+            }
+        })
 
         voiceManager = VoiceManager(
             context = this,
             onSpeechResult = { text ->
-                handleUserQuery(text)
+                runOnUiThread {
+                    if (SayriApp.instance.confirmVoiceBeforeSending) {
+                        binding.etMessage.setText(text)
+                        binding.etMessage.setSelection(text.length)
+                        binding.etMessage.requestFocus()
+                        Toast.makeText(this@MainActivity, "Voice recognized. Review and send.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        handleUserQuery(text, isVoice = true)
+                    }
+                }
             },
-            onAudioLevel = { rms ->
-                binding.mainOrb.setAudioLevel(rms)
-            },
+            onAudioLevel = { _ -> },
             onStateChange = { isListening ->
-                if (isListening) {
-                    binding.mainOrb.state = OrbState.LISTENING
-                    binding.tvStatus.text = "Escuchando voz... 🎙️"
-                } else {
-                    if (binding.mainOrb.state == OrbState.LISTENING) {
-                        binding.mainOrb.state = OrbState.IDLE
+                runOnUiThread {
+                    if (isListening) {
+                        binding.tvStatus.text = "Sayri is listening..."
+                        binding.btnVoice.setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+                    } else {
+                        binding.btnVoice.setImageResource(android.R.drawable.ic_btn_speak_now)
                         refreshServerStatus()
                     }
                 }
             }
-        )
+        ).apply {
+            onPartialSpeechResult = { partial ->
+                runOnUiThread {
+                    binding.etMessage.setText(partial)
+                    binding.etMessage.setSelection(partial.length)
+                }
+            }
+            onSpeakingStateChange = { isSpeaking ->
+                runOnUiThread {
+                    binding.layoutStopTts.visibility = if (isSpeaking) View.VISIBLE else View.GONE
+                }
+            }
+        }
 
         setupListeners()
         setupSuggestions()
 
         refreshServerStatus()
-        scanNetworkForSayri()
+        scanNetworkForSayri(autoConnect = true)
     }
 
     private fun setupListeners() {
-        binding.mainOrb.setOnClickListener {
-            triggerVoice()
+        binding.btnStopTts.setOnClickListener {
+            voiceManager.stopSpeaking()
+            binding.layoutStopTts.visibility = View.GONE
         }
 
         binding.btnVoice.setOnClickListener {
-            triggerVoice()
+            if (voiceManager.isCurrentlyListening) {
+                voiceManager.stopListening()
+            } else if (voiceManager.isSpeaking) {
+                voiceManager.stopSpeaking()
+            } else {
+                triggerVoice()
+            }
         }
 
         binding.btnSend.setOnClickListener {
             val text = binding.etMessage.text.toString().trim()
-            if (text.isNotEmpty()) {
+            if (text.isNotEmpty() || attachedPhotoBase64 != null) {
                 binding.etMessage.setText("")
-                handleUserQuery(text)
+                val query = if (text.isNotEmpty()) text else "Analyze this attached image and explain what you see."
+                handleUserQuery(query, isVoice = false)
             }
+        }
+
+        binding.btnAttachPhoto.setOnClickListener {
+            showAttachPhotoOptions()
+        }
+
+        binding.btnRemovePhoto.setOnClickListener {
+            clearAttachedPhoto()
+        }
+
+        binding.btnNewChat.setOnClickListener {
+            startNewConversation()
+        }
+
+        binding.btnHistory.setOnClickListener {
+            showHistoryDialog()
         }
 
         binding.btnSettings.setOnClickListener {
@@ -121,9 +202,171 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun showAttachPhotoOptions() {
+        val options = arrayOf("Take Photo with Camera", "Choose Image from Gallery")
+        AlertDialog.Builder(this)
+            .setTitle("Attach Image")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> {
+                        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                            takePictureLauncher.launch(null)
+                        } else {
+                            requestPermissions(arrayOf(Manifest.permission.CAMERA), 101)
+                        }
+                    }
+                    1 -> {
+                        pickImageLauncher.launch("image/*")
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun setAttachedPhoto(bitmap: Bitmap) {
+        val maxDim = 1280
+        val scaled = if (bitmap.width > maxDim || bitmap.height > maxDim) {
+            val ratio = bitmap.width.toFloat() / bitmap.height.toFloat()
+            val w = if (ratio > 1) maxDim else (maxDim * ratio).toInt()
+            val h = if (ratio > 1) (maxDim / ratio).toInt() else maxDim
+            Bitmap.createScaledBitmap(bitmap, w, h, true)
+        } else {
+            bitmap
+        }
+
+        val baos = ByteArrayOutputStream()
+        scaled.compress(Bitmap.CompressFormat.JPEG, 85, baos)
+        val bytes = baos.toByteArray()
+        attachedPhotoBitmap = scaled
+        attachedPhotoBase64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+
+        binding.ivAttachedPhoto.setImageBitmap(scaled)
+        binding.layoutAttachedPhoto.visibility = View.VISIBLE
+    }
+
+    private fun clearAttachedPhoto() {
+        attachedPhotoBitmap = null
+        attachedPhotoBase64 = null
+        binding.ivAttachedPhoto.setImageBitmap(null)
+        binding.layoutAttachedPhoto.visibility = View.GONE
+    }
+
+    private fun startNewConversation() {
+        currentSse?.cancel()
+        voiceManager.stopSpeaking()
+        currentSessionId = "mobile-${UUID.randomUUID()}"
+        conversationHistory.clear()
+        adapter.clear()
+        clearAttachedPhoto()
+        Toast.makeText(this, "Started new conversation", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showHistoryDialog() {
+        val dialogBinding = DialogHistoryBinding.inflate(LayoutInflater.from(this))
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogBinding.root)
+            .create()
+
+        val historyAdapter = SessionHistoryAdapter(
+            onSessionSelected = { session ->
+                loadPastSession(session.id, dialog)
+            },
+            onSessionDelete = { session ->
+                confirmDeleteSession(session.id) {
+                    loadSessionsList(dialogBinding, null)
+                }
+            }
+        )
+
+        dialogBinding.rvHistorySessions.layoutManager = LinearLayoutManager(this)
+        dialogBinding.rvHistorySessions.adapter = historyAdapter
+
+        dialogBinding.btnCloseHistory.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        loadSessionsList(dialogBinding, historyAdapter)
+        dialog.show()
+    }
+
+    private fun loadSessionsList(binding: DialogHistoryBinding, adapterInstance: SessionHistoryAdapter?) {
+        binding.pbLoading.visibility = View.VISIBLE
+        binding.rvHistorySessions.visibility = View.GONE
+        binding.tvEmptyHistory.visibility = View.GONE
+
+        lifecycleScope.launch {
+            val res = apiClient.getSessions()
+            binding.pbLoading.visibility = View.GONE
+            res.onSuccess { list ->
+                val activeList = list.sortedByDescending { it.updatedAt ?: it.createdAt ?: 0.0 }
+                if (activeList.isEmpty()) {
+                    binding.tvEmptyHistory.visibility = View.VISIBLE
+                } else {
+                    binding.rvHistorySessions.visibility = View.VISIBLE
+                    adapterInstance?.setSessions(activeList)
+                }
+            }.onFailure { err ->
+                binding.tvEmptyHistory.text = "Error loading history: ${err.message}"
+                binding.tvEmptyHistory.visibility = View.VISIBLE
+            }
+        }
+    }
+
+    private fun loadPastSession(sessionId: String, dialog: AlertDialog) {
+        lifecycleScope.launch {
+            val res = apiClient.getSessionById(sessionId)
+            res.onSuccess { detail ->
+                dialog.dismiss()
+                currentSse?.cancel()
+                voiceManager.stopSpeaking()
+
+                currentSessionId = detail.id
+                conversationHistory.clear()
+                adapter.clear()
+                clearAttachedPhoto()
+
+                detail.messages.forEach { msg ->
+                    val isUser = msg.role == "user"
+                    val author = if (isUser) "You" else "Sayri"
+                    conversationHistory.add(ChatRoleMessage(msg.role, msg.content))
+                    adapter.addMessage(ChatMessage(author = author, content = msg.content, isUser = isUser))
+                }
+
+                binding.rvMessages.scrollToPosition(adapter.itemCount - 1)
+                Toast.makeText(this@MainActivity, "Conversation resumed", Toast.LENGTH_SHORT).show()
+            }.onFailure { err ->
+                Toast.makeText(this@MainActivity, "Failed to load session: ${err.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun confirmDeleteSession(sessionId: String, onDeleted: () -> Unit) {
+        AlertDialog.Builder(this)
+            .setTitle("Delete Conversation")
+            .setMessage("Are you sure you want to delete this conversation?")
+            .setPositiveButton("Delete") { _, _ ->
+                lifecycleScope.launch {
+                    val res = apiClient.deleteSession(sessionId)
+                    res.onSuccess {
+                        Toast.makeText(this@MainActivity, "Conversation deleted", Toast.LENGTH_SHORT).show()
+                        if (currentSessionId == sessionId) {
+                            startNewConversation()
+                        }
+                        onDeleted()
+                    }.onFailure { err ->
+                        Toast.makeText(this@MainActivity, "Failed to delete: ${err.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     private fun triggerVoice() {
+        lastInputWasVoice = true
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            voiceManager.startListening()
+            voiceManager.startListening(allowIntentFallback = false)
         } else {
             requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
@@ -135,165 +378,231 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.chipIdea.setOnClickListener {
-            binding.etMessage.setText("Guarda esta idea: ")
+            binding.etMessage.setText("Save idea: ")
             binding.etMessage.setSelection(binding.etMessage.text.length)
             binding.etMessage.requestFocus()
         }
 
         binding.chipTomorrow.setOnClickListener {
-            binding.etMessage.setText("Recuérdame mañana: ")
+            binding.etMessage.setText("Remind tomorrow: ")
             binding.etMessage.setSelection(binding.etMessage.text.length)
             binding.etMessage.requestFocus()
         }
 
         binding.chipTimer.setOnClickListener {
-            toolManager.setTimer(300, "Temporizador 5m")
-            adapter.addMessage(ChatMessage(author = "Sayri", content = "⏱️ Temporizador de 5 minutos iniciado.", isUser = false))
+            toolManager.setTimer(300, "Timer 5 min")
+            adapter.addMessage(ChatMessage(author = "Sayri", content = "Timer for 5 minutes started.", isUser = false))
         }
     }
 
-    private fun scanNetworkForSayri() {
+    private fun scanNetworkForSayri(autoConnect: Boolean = true) {
         lifecycleScope.launch {
             val hosts = NetworkDiscovery.discoverSayriHosts(this@MainActivity)
             if (hosts.isNotEmpty()) {
                 val host = hosts.first()
-                binding.layoutDiscoveryBanner.visibility = View.VISIBLE
-                binding.tvDiscoveredHost.text = "Detectado: ${host.name} (${host.ip})"
-                binding.btnQuickConnect.setOnClickListener {
+                if (autoConnect) {
                     SayriApp.instance.serverHost = host.ip
                     binding.layoutDiscoveryBanner.visibility = View.GONE
                     refreshServerStatus()
-                    Toast.makeText(this@MainActivity, "Conectado a ${host.ip}", Toast.LENGTH_SHORT).show()
+                } else {
+                    binding.layoutDiscoveryBanner.visibility = View.VISIBLE
+                    binding.tvDiscoveredHost.text = "Discovered: ${host.name} (${host.ip})"
+                    binding.btnQuickConnect.setOnClickListener {
+                        SayriApp.instance.serverHost = host.ip
+                        binding.layoutDiscoveryBanner.visibility = View.GONE
+                        refreshServerStatus()
+                        if (SayriApp.instance.apiKey.isEmpty()) {
+                            showPairPinDialog()
+                        } else {
+                            Toast.makeText(this@MainActivity, "Connected to ${host.ip}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
                 }
             }
         }
+    }
+
+    private fun showPairPinDialog(onSuccess: (() -> Unit)? = null) {
+        val input = android.widget.EditText(this).apply {
+            hint = "PIN (e.g. 812234)"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            filters = arrayOf(android.text.InputFilter.LengthFilter(6))
+            setPadding(40, 30, 40, 30)
+            setTextColor(getColor(R.color.cajita_text_primary))
+            setBackgroundResource(R.drawable.bg_cajita_pill)
+        }
+        val container = android.widget.FrameLayout(this).apply {
+            setPadding(50, 20, 50, 10)
+            addView(input)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Pair with Sayri PC")
+            .setMessage("Enter the 6-digit PIN displayed on your Sayri Desktop (Mobile tab):")
+            .setView(container)
+            .setPositiveButton("Pair") { _, _ ->
+                val pin = input.text.toString().trim()
+                if (pin.length == 6) {
+                    lifecycleScope.launch {
+                        val res = apiClient.pairWithPin(pin, android.os.Build.MODEL)
+                        res.onSuccess {
+                            Toast.makeText(this@MainActivity, "Device paired successfully", Toast.LENGTH_SHORT).show()
+                            refreshServerStatus()
+                            onSuccess?.invoke()
+                        }.onFailure { err ->
+                            Toast.makeText(this@MainActivity, "PIN Error: ${err.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                } else {
+                    Toast.makeText(this, "PIN must be 6 digits", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun refreshServerStatus() {
         lifecycleScope.launch {
             val result = apiClient.getStatus()
             result.onSuccess { status ->
-                val accState = if (SayriAccessibilityService.isRunning) "Accesibilidad: ON" else "Accesibilidad: OFF"
-                binding.tvStatus.text = "Pulsar OS • En línea (${status.activeAgent}) • $accState"
-                binding.mainOrb.state = OrbState.IDLE
+                val accState = if (SayriAccessibilityService.isRunning) "Accessibility: ON" else "Accessibility: OFF"
+                binding.tvStatus.text = "Pulsar OS • Online (${status.activeAgent}) • $accState"
+                binding.layoutDiscoveryBanner.visibility = View.GONE
             }.onFailure {
-                val accState = if (SayriAccessibilityService.isRunning) "Accesibilidad: ON" else "Accesibilidad: OFF"
-                binding.tvStatus.text = "Desconectado de Sayri PC ($accState)"
-                binding.mainOrb.state = OrbState.IDLE
+                val accState = if (SayriAccessibilityService.isRunning) "Accessibility: ON" else "Accessibility: OFF"
+                binding.tvStatus.text = "Disconnected from Sayri PC ($accState)"
+                scanNetworkForSayri(autoConnect = true)
             }
         }
     }
 
-    private fun handleUserQuery(query: String) {
+    private fun handleUserQuery(query: String, isVoice: Boolean = false) {
+        lastInputWasVoice = isVoice
         val lower = query.lowercase().trim()
 
-        // 1. Direct Dicio-style local tools
-        if (lower.startsWith("abre ") || lower.startsWith("abrir ")) {
+        if (lower.startsWith("open ") || lower.startsWith("abre ") || lower.startsWith("abrir ")) {
             val appTarget = query.substring(5).trim()
             if (toolManager.openApp(appTarget)) {
-                adapter.addMessage(ChatMessage(author = "Tú", content = query, isUser = true))
-                val reply = "Abriendo $appTarget..."
+                adapter.addMessage(ChatMessage(author = "You", content = query, isUser = true))
+                val reply = "Opening $appTarget..."
                 adapter.addMessage(ChatMessage(author = "Sayri", content = reply, isUser = false))
-                voiceManager.speak(reply)
+                if (isVoice) {
+                    voiceManager.speak(reply) {
+                        runOnUiThread {
+                            triggerVoice()
+                        }
+                    }
+                }
                 return
             }
-        } else if (lower.startsWith("linterna ")) {
-            val on = lower.contains("enciende") || lower.contains("activa") || lower.contains("on")
+        } else if (lower.startsWith("flashlight ") || lower.startsWith("linterna ")) {
+            val on = lower.contains("on") || lower.contains("enciende") || lower.contains("activa")
             toolManager.setFlashlight(on)
-            val msg = if (on) "Linterna encendida." else "Linterna apagada."
-            adapter.addMessage(ChatMessage(author = "Tú", content = query, isUser = true))
+            val msg = if (on) "Flashlight turned on." else "Flashlight turned off."
+            adapter.addMessage(ChatMessage(author = "You", content = query, isUser = true))
             adapter.addMessage(ChatMessage(author = "Sayri", content = msg, isUser = false))
-            voiceManager.speak(msg)
+            if (isVoice) {
+                voiceManager.speak(msg) {
+                    runOnUiThread {
+                        triggerVoice()
+                    }
+                }
+            }
             return
         }
 
-        // 2. Stream to Sayri Core on PC
-        sendMessageToSayri(query)
+        sendMessageToSayri(query, isVoice)
     }
 
-    private fun sendMessageToSayri(text: String) {
-        adapter.addMessage(ChatMessage(author = "Tú", content = text, isUser = true))
+    private fun sendMessageToSayri(text: String, isVoice: Boolean) {
+        val hasPhoto = attachedPhotoBase64 != null
+        val promptForModel = if (hasPhoto) {
+            val queryText = if (text.isNotEmpty()) text else "Analyze the attached image."
+            "[Photo attached by user]\n$queryText\n(Note: If vision processing is currently unavailable on this model, please notify the user that only text and device actions are supported, and ask how you can help.)"
+        } else {
+            text
+        }
+
+        val displayContent = if (hasPhoto) "[Photo attached] $text".trim() else text
+        clearAttachedPhoto()
+
+        adapter.addMessage(ChatMessage(author = "You", content = displayContent, isUser = true))
         binding.rvMessages.smoothScrollToPosition(adapter.itemCount - 1)
 
-        conversationHistory.add(ChatRoleMessage("user", text))
+        conversationHistory.add(ChatRoleMessage("user", promptForModel))
 
         val sayriMsg = ChatMessage(author = "Sayri", content = "...", isUser = false)
         adapter.addMessage(sayriMsg)
         binding.rvMessages.smoothScrollToPosition(adapter.itemCount - 1)
 
-        binding.mainOrb.state = OrbState.THINKING
         val fullAnswer = StringBuilder()
 
         currentSse?.cancel()
         currentSse = apiClient.streamChat(
             messages = conversationHistory,
+            sessionId = currentSessionId,
             onDelta = { delta ->
                 runOnUiThread {
                     fullAnswer.append(delta)
                     adapter.updateLastMessage(fullAnswer.toString())
-                    binding.rvMessages.smoothScrollToPosition(adapter.itemCount - 1)
+                    binding.rvMessages.scrollToPosition(adapter.itemCount - 1)
                 }
             },
             onDone = { finalAnswer ->
                 runOnUiThread {
-                    binding.mainOrb.state = OrbState.SPEAKING
-                    val finalTxt = if (finalAnswer.isNotEmpty()) finalAnswer else fullAnswer.toString()
-                    adapter.updateLastMessage(finalTxt)
-                    conversationHistory.add(ChatRoleMessage("assistant", finalTxt))
+                    val raw = if (finalAnswer.isNotEmpty()) finalAnswer else fullAnswer.toString()
+                    val (cleanRes, _) = toolManager.parseAndExecuteAction(raw)
+                    adapter.updateLastMessage(cleanRes)
+                    conversationHistory.add(ChatRoleMessage("assistant", cleanRes))
 
-                    voiceManager.speak(finalTxt) {
-                        runOnUiThread {
-                            binding.mainOrb.state = OrbState.IDLE
+                    if (isVoice) {
+                        voiceManager.speak(cleanRes) {
+                            runOnUiThread {
+                                triggerVoice()
+                            }
                         }
                     }
                 }
             },
             onError = { err ->
                 runOnUiThread {
-                    binding.mainOrb.state = OrbState.IDLE
-                    adapter.updateLastMessage("⚠️ Error: ${err.localizedMessage}")
+                    val msg = if (err.message?.contains("401") == true) {
+                        "Device not paired. Open Settings to pair PIN."
+                    } else {
+                        "Error: ${err.localizedMessage}"
+                    }
+                    adapter.updateLastMessage(msg)
                 }
             }
         )
-    }
-
-    private fun handleCapturedPhoto(bitmap: Bitmap) {
-        val prompt = "He capturado una foto con la cámara. Analízala y ayúdame con lo que aparece."
-        sendMessageToSayri(prompt)
     }
 
     private fun performScreenPerception() {
         val service = SayriAccessibilityService.instance
         if (service == null) {
             AlertDialog.Builder(this)
-                .setTitle("Servicio de Accesibilidad Desactivado")
-                .setMessage("Habilita el Servicio de Accesibilidad de Sayri para percibir tu pantalla.")
-                .setPositiveButton("Abrir Ajustes") { dialog: DialogInterface, which: Int ->
+                .setTitle("Accessibility Service Disabled")
+                .setMessage("Enable Sayri Accessibility Service to perceive your mobile screen.")
+                .setPositiveButton("Open Settings") { _: DialogInterface, _: Int ->
                     startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 }
-                .setNegativeButton("Cancelar", null)
+                .setNegativeButton("Cancel", null)
                 .show()
             return
         }
 
-        lifecycleScope.launch {
-            binding.mainOrb.state = OrbState.THINKING
-            val snapshot = service.dumpScreenHierarchy(userIntent = "Analizar pantalla y guiar al usuario")
-            adapter.addMessage(ChatMessage(author = "Tú", content = "📱 Percibiendo pantalla de: ${snapshot.packageName}", isUser = true))
-            binding.rvMessages.smoothScrollToPosition(adapter.itemCount - 1)
-
-            val res = apiClient.sendScreenSnapshot(snapshot)
-            res.onSuccess { decision ->
-                binding.mainOrb.state = OrbState.SPEAKING
-                adapter.addMessage(ChatMessage(author = "Sayri", content = decision, isUser = false))
-                voiceManager.speak(decision) {
-                    runOnUiThread { binding.mainOrb.state = OrbState.IDLE }
+        service.captureScreenshot { screenBitmap ->
+            runOnUiThread {
+                val snapshot = service.dumpScreenHierarchy(userIntent = "Analyze screen and guide user")
+                val prompt = if (snapshot.elements.isNotEmpty()) {
+                    val elements = snapshot.elements.take(15).mapNotNull { it.text ?: it.contentDescription }.joinToString(", ")
+                    "[Mobile Screen Perception] Active app: ${snapshot.packageName}. Elements visible on screen: $elements. Guide me or assist based on this screen."
+                } else {
+                    "[Mobile Screen Perception] Active app: ${snapshot.packageName}. Guide me or assist based on this screen."
                 }
-            }.onFailure { err ->
-                binding.mainOrb.state = OrbState.IDLE
-                adapter.addMessage(ChatMessage(author = "Sayri", content = "⚠️ Error analizando pantalla: ${err.message}", isUser = false))
+
+                handleUserQuery(prompt, isVoice = lastInputWasVoice)
             }
-            binding.rvMessages.smoothScrollToPosition(adapter.itemCount - 1)
         }
     }
 
@@ -301,20 +610,23 @@ class MainActivity : AppCompatActivity() {
         val dialogBinding = DialogSettingsBinding.inflate(LayoutInflater.from(this))
         dialogBinding.etHost.setText(SayriApp.instance.serverHost)
         dialogBinding.etPort.setText(SayriApp.instance.serverPort.toString())
-        dialogBinding.etApiKey.setText(SayriApp.instance.apiKey)
+        dialogBinding.switchConfirmVoice.isChecked = SayriApp.instance.confirmVoiceBeforeSending
+        dialogBinding.switchConfirmVoice.setOnCheckedChangeListener { _, isChecked ->
+            SayriApp.instance.confirmVoiceBeforeSending = isChecked
+        }
 
         dialogBinding.btnScanNetwork.setOnClickListener {
             dialogBinding.tvScanResult.visibility = View.VISIBLE
-            dialogBinding.tvScanResult.text = "Escaneando red local..."
+            dialogBinding.tvScanResult.text = "Scanning local network..."
             lifecycleScope.launch {
                 val hosts = NetworkDiscovery.discoverSayriHosts(this@MainActivity)
                 if (hosts.isNotEmpty()) {
                     val host = hosts.first()
-                    dialogBinding.tvScanResult.text = "✅ Encontrado ${host.name} en ${host.ip}"
+                    dialogBinding.tvScanResult.text = "Found ${host.name} at ${host.ip}"
                     dialogBinding.etHost.setText(host.ip)
                     dialogBinding.etPort.setText(host.port.toString())
                 } else {
-                    dialogBinding.tvScanResult.text = "No se encontraron otros dispositivos Sayri en la subred."
+                    dialogBinding.tvScanResult.text = "No other Sayri devices found on subnet."
                 }
             }
         }
@@ -326,7 +638,7 @@ class MainActivity : AppCompatActivity() {
                 try {
                     startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
                 } catch (e2: Exception) {
-                    Toast.makeText(this, "Abre Ajustes -> Aplicaciones predeterminadas -> Asistente digital", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Open Settings -> Default Apps -> Digital Assistant", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -335,21 +647,48 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
 
+        val isAlreadyPaired = SayriApp.instance.apiKey.isNotEmpty()
+        dialogBinding.tvPairStatus.text = if (isAlreadyPaired) "Status: Paired with token" else "Status: Not paired"
+        if (isAlreadyPaired) {
+            dialogBinding.tvPairStatus.setTextColor(getColor(R.color.cajita_accent_cyan))
+        }
+
+        dialogBinding.btnPairPin.setOnClickListener {
+            val pin = dialogBinding.etPin.text.toString().trim()
+            if (pin.isEmpty()) {
+                Toast.makeText(this, "Enter the 6-digit PIN shown on Desktop", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            dialogBinding.tvPairStatus.text = "Pairing with PIN $pin..."
+            lifecycleScope.launch {
+                val res = apiClient.pairWithPin(pin, android.os.Build.MODEL)
+                res.onSuccess {
+                    dialogBinding.tvPairStatus.text = "Paired successfully!"
+                    dialogBinding.tvPairStatus.setTextColor(getColor(R.color.cajita_accent_cyan))
+                    Toast.makeText(this@MainActivity, "Device paired successfully", Toast.LENGTH_SHORT).show()
+                    refreshServerStatus()
+                }.onFailure { err ->
+                    dialogBinding.tvPairStatus.text = "Error: ${err.message}"
+                    dialogBinding.tvPairStatus.setTextColor(getColor(android.R.color.holo_red_light))
+                    Toast.makeText(this@MainActivity, "PIN Error: ${err.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
         AlertDialog.Builder(this)
             .setView(dialogBinding.root)
-            .setPositiveButton("Guardar") { dialog: DialogInterface, which: Int ->
+            .setPositiveButton("Save") { _: DialogInterface, _: Int ->
                 val newHost = dialogBinding.etHost.text.toString().trim()
                 val newPort = dialogBinding.etPort.text.toString().toIntOrNull() ?: SayriApp.DEFAULT_PORT
-                val newKey = dialogBinding.etApiKey.text.toString().trim()
 
                 SayriApp.instance.serverHost = if (newHost.isNotEmpty()) newHost else SayriApp.DEFAULT_HOST
                 SayriApp.instance.serverPort = newPort
-                SayriApp.instance.apiKey = newKey
+                SayriApp.instance.confirmVoiceBeforeSending = dialogBinding.switchConfirmVoice.isChecked
 
                 refreshServerStatus()
-                Toast.makeText(this, "Ajustes actualizados", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Settings updated", Toast.LENGTH_SHORT).show()
             }
-            .setNegativeButton("Cancelar", null)
+            .setNegativeButton("Cancel", null)
             .show()
     }
 

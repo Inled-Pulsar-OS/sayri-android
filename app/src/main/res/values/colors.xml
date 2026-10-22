@@ -3,6 +3,7 @@
     <!-- Exact Sayri Cajita Dark Glass Palette -->
     <color name="cajita_bg">#0D1424</color>
     <color name="cajita_card">#F00D1424</color>
+    <color name="cajita_glass_bg">#F00D1424</color>
     <color name="cajita_surface">#111A2E</color>
     <color name="cajita_surface_variant">#18233C</color>
 
@@ -13,12 +14,25 @@
     <color name="cajita_neon_purple">#9D4EDD</color>
     <color name="cajita_midnight">#0B1533</color>
     <color name="cajita_accent">#38BDF8</color>
+    <color name="cajita_accent_cyan">#38BDF8</color>
+
+    <!-- Desktop Default UI Siri Orb Colors -->
+    <color name="cajita_orb_dark">#0E1734</color>
+    <color name="cajita_orb_primary">#4834CC</color>
+    <color name="cajita_orb_secondary">#7F1458</color>
+
+    <!-- Cajita Buttons (.sayri-action-btn) -->
+    <color name="cajita_btn_bg">#14FFFFFF</color>
+    <color name="cajita_btn_pressed">#28FFFFFF</color>
+    <color name="cajita_btn_border">#24FFFFFF</color>
+    <color name="cajita_btn_primary_bg">#591E74FB</color>
+    <color name="cajita_btn_primary_border">#B31E74FB</color>
 
     <!-- Glass Borders & Highlights -->
     <color name="cajita_border">#26FFFFFF</color>
     <color name="cajita_border_subtle">#14FFFFFF</color>
-    <color name="cajita_pill_bg">#201E74FB</color>
-    <color name="cajita_pill_border">#4D1E74FB</color>
+    <color name="cajita_pill_bg">#F00D1424</color>
+    <color name="cajita_pill_border">#24FFFFFF</color>
 
     <!-- Text & Typography -->
     <color name="cajita_text_primary">#FFFFFF</color>

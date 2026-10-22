@@ -1,14 +1,18 @@
 package es.inled.sayri.ui
 
-import android.app.Activity
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.util.Base64
 import android.view.View
+import android.view.inputmethod.EditorInfo
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import es.inled.sayri.R
+import es.inled.sayri.SayriApp
 import es.inled.sayri.api.SayriApiClient
 import es.inled.sayri.data.ChatRoleMessage
 import es.inled.sayri.databinding.LayoutSayriCajitaAssistBinding
@@ -24,6 +28,29 @@ class AssistActivity : ComponentActivity() {
     private val toolManager by lazy { DeviceToolManager(this) }
 
     private lateinit var voiceManager: VoiceManager
+    private val conversationHistory = mutableListOf<ChatRoleMessage>()
+    private val assistSessionId = "mobile-assist-${java.util.UUID.randomUUID()}"
+    private var lastInputWasVoice: Boolean = false
+
+    private val requestAudioPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            startVoiceCapture()
+        } else {
+            Toast.makeText(this, "Microphone permission is required", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private val requestCameraPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            takePictureLauncher.launch(null)
+        } else {
+            Toast.makeText(this, "Camera permission is required", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     private val takePictureLauncher = registerForActivityResult(
         ActivityResultContracts.TakePicturePreview()
@@ -41,185 +68,364 @@ class AssistActivity : ComponentActivity() {
         voiceManager = VoiceManager(
             context = this,
             onSpeechResult = { text ->
-                handleUserQuery(text)
+                runOnUiThread {
+                    if (SayriApp.instance.confirmVoiceBeforeSending) {
+                        binding.etAssistInput.setText(text)
+                        binding.etAssistInput.setSelection(text.length)
+                        binding.etAssistInput.requestFocus()
+                        binding.tvAssistStatus.text = "Review and send"
+                        binding.cajitaCard.mode = "idle"
+                    } else {
+                        handleUserQuery(text, isVoice = true)
+                    }
+                }
             },
-            onAudioLevel = { rms ->
-                binding.assistOrb.setAudioLevel(rms)
-            },
+            onAudioLevel = { _ -> },
             onStateChange = { isListening ->
                 if (isListening) {
-                    binding.assistOrb.state = OrbState.LISTENING
-                    binding.tvAssistStatus.text = "Escuchando... 🎙️"
+                    binding.cajitaCard.mode = "active"
+                    binding.tvAssistStatus.text = "Sayri is listening..."
+                    binding.btnAssistVoice.text = "Stop Mic"
                 } else {
-                    if (binding.assistOrb.state == OrbState.LISTENING) {
-                        binding.assistOrb.state = OrbState.IDLE
+                    binding.btnAssistVoice.text = "Voice"
+                    binding.cajitaCard.mode = "idle"
+                }
+            }
+        ).apply {
+            onPartialSpeechResult = { partial ->
+                runOnUiThread {
+                    binding.tvAssistStatus.text = partial
+                    binding.etAssistInput.setText(partial)
+                    binding.etAssistInput.setSelection(partial.length)
+                }
+            }
+            onSpeakingStateChange = { isSpeaking ->
+                runOnUiThread {
+                    binding.btnAssistStopTts.visibility = if (isSpeaking) View.VISIBLE else View.GONE
+                    if (isSpeaking) {
+                        binding.cajitaCard.mode = "speaking"
+                    } else if (binding.cajitaCard.mode == "speaking") {
+                        binding.cajitaCard.mode = "idle"
                     }
                 }
             }
-        )
+        }
 
         setupListeners()
 
         // Auto start listening on assist invocation
-        binding.assistOrb.postDelayed({
-            voiceManager.startListening()
-        }, 300)
+        binding.root.postDelayed({
+            startVoiceCapture()
+        }, 200)
+    }
+
+    private fun startVoiceCapture() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            lastInputWasVoice = true
+            voiceManager.startListening(allowIntentFallback = false)
+        } else {
+            requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    private fun stopAnyPlaybackOrCapture() {
+        if (voiceManager.isSpeaking) {
+            voiceManager.stopSpeaking()
+            binding.btnAssistStopTts.visibility = View.GONE
+            binding.cajitaCard.mode = "idle"
+            return
+        }
+        if (voiceManager.isCurrentlyListening) {
+            voiceManager.stopListening()
+            binding.cajitaCard.mode = "idle"
+            binding.btnAssistVoice.text = "Voice"
+            return
+        }
+    }
+
+    private fun triggerCamera() {
+        stopAnyPlaybackOrCapture()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            takePictureLauncher.launch(null)
+        } else {
+            requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
     }
 
     private fun setupListeners() {
+        binding.tvAssistTranscription.setOnLongClickListener {
+            val text = binding.tvAssistTranscription.text?.toString() ?: ""
+            if (text.isNotBlank() && text != "Thinking...") {
+                val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                val clip = android.content.ClipData.newPlainText("Sayri Assistant", text)
+                clipboard.setPrimaryClip(clip)
+                android.widget.Toast.makeText(this, "Copied to clipboard", android.widget.Toast.LENGTH_SHORT).show()
+                true
+            } else false
+        }
+
         binding.assistBackdrop.setOnClickListener {
+            stopAnyPlaybackOrCapture()
             finish()
         }
 
-        binding.btnAssistVoice.setOnClickListener {
-            voiceManager.startListening()
+        binding.btnAssistClose.setOnClickListener {
+            stopAnyPlaybackOrCapture()
+            finish()
         }
 
-        binding.assistOrb.setOnClickListener {
-            voiceManager.startListening()
+        binding.btnAssistStopTts.setOnClickListener {
+            voiceManager.stopSpeaking()
+            binding.btnAssistStopTts.visibility = View.GONE
+        }
+
+        binding.btnAssistVoice.setOnClickListener {
+            if (voiceManager.isCurrentlyListening) {
+                voiceManager.stopListening()
+            } else if (voiceManager.isSpeaking) {
+                voiceManager.stopSpeaking()
+                binding.btnAssistStopTts.visibility = View.GONE
+                binding.cajitaCard.mode = "idle"
+            } else {
+                startVoiceCapture()
+            }
         }
 
         binding.btnAssistSend.setOnClickListener {
             val text = binding.etAssistInput.text.toString().trim()
             if (text.isNotEmpty()) {
                 binding.etAssistInput.setText("")
-                handleUserQuery(text)
+                handleUserQuery(text, isVoice = false)
+            }
+        }
+
+        binding.etAssistInput.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEND || actionId == EditorInfo.IME_ACTION_DONE) {
+                val text = binding.etAssistInput.text.toString().trim()
+                if (text.isNotEmpty()) {
+                    binding.etAssistInput.setText("")
+                    handleUserQuery(text, isVoice = false)
+                }
+                true
+            } else {
+                false
             }
         }
 
         // Live Mode toggle
         binding.btnAssistLiveMode.setOnClickListener {
             voiceManager.isLiveMode = !voiceManager.isLiveMode
+            updateLiveModeUi()
             if (voiceManager.isLiveMode) {
-                binding.btnAssistLiveMode.text = "Modo Live: ON 🟢"
-                binding.btnAssistLiveMode.setTextColor(getColor(R.color.cajita_neon_cyan))
-                voiceManager.startListening()
+                startVoiceCapture()
             } else {
-                binding.btnAssistLiveMode.text = "Modo Live: OFF"
-                binding.btnAssistLiveMode.setTextColor(getColor(R.color.cajita_text_secondary))
+                stopAnyPlaybackOrCapture()
             }
         }
 
-        // Circle to Search (Rodear para buscar)
+        // Circle to Search
         binding.btnAssistCircleSearch.setOnClickListener {
+            stopAnyPlaybackOrCapture()
             startCircleToSearch()
         }
 
         // Camera Vision
         binding.btnAssistCamera.setOnClickListener {
-            takePictureLauncher.launch(null)
+            triggerCamera()
         }
 
-        // Circle Search Callback
+        // Circle Search Callback with real Screenshot Vision
         binding.circleSearchOverlay.onAreaSelected = { bounds ->
             binding.circleSearchOverlay.visibility = View.GONE
             binding.circleSearchOverlay.clear()
 
-            // Dump accessibility nodes in the circled area
-            val snapshot = SayriAccessibilityService.instance?.dumpScreenHierarchy("Buscar en zona rodeada")
-            val targetNodes = snapshot?.elements?.filter { elem ->
-                elem.bounds.size == 4 &&
-                        elem.bounds[0] >= bounds.left - 50 &&
-                        elem.bounds[2] <= bounds.right + 50 &&
-                        elem.bounds[1] >= bounds.top - 50 &&
-                        elem.bounds[3] <= bounds.bottom + 50
-            } ?: emptyList()
+            val accService = SayriAccessibilityService.instance
+            if (accService != null) {
+                accService.captureScreenshot { screenBitmap ->
+                    runOnUiThread {
+                        var base64Img: String? = null
+                        if (screenBitmap != null) {
+                            try {
+                                val left = bounds.left.toInt().coerceIn(0, screenBitmap.width - 1)
+                                val top = bounds.top.toInt().coerceIn(0, screenBitmap.height - 1)
+                                val right = bounds.right.toInt().coerceIn(left + 1, screenBitmap.width)
+                                val bottom = bounds.bottom.toInt().coerceIn(top + 1, screenBitmap.height)
+                                val width = right - left
+                                val height = bottom - top
+                                if (width > 10 && height > 10) {
+                                    val cropped = Bitmap.createBitmap(screenBitmap, left, top, width, height)
+                                    val baos = ByteArrayOutputStream()
+                                    cropped.compress(Bitmap.CompressFormat.JPEG, 80, baos)
+                                    base64Img = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("AssistActivity", "Crop screenshot error", e)
+                            }
+                        }
 
-            val textContext = targetNodes.joinToString(" ") { it.text ?: it.contentDescription ?: "" }.trim()
-            val query = if (textContext.isNotEmpty()) {
-                "Buscar y explicar este elemento rodeado en pantalla: \"$textContext\""
+                        val snapshot = accService.dumpScreenHierarchy("Search in circled region")
+                        val targetNodes = snapshot.elements.filter { elem ->
+                            if (elem.bounds.size < 4) return@filter false
+                            val eLeft = elem.bounds[0]; val eTop = elem.bounds[1]; val eRight = elem.bounds[2]; val eBottom = elem.bounds[3]
+                            val hasText = !elem.text.isNullOrBlank() || !elem.contentDescription.isNullOrBlank()
+                            if (!hasText) return@filter false
+                            val intersects = (eLeft < bounds.right && eRight > bounds.left && eTop < bounds.bottom && eBottom > bounds.top)
+                            val cX = (eLeft + eRight) / 2; val cY = (eTop + eBottom) / 2
+                            intersects || bounds.contains(cX.toFloat(), cY.toFloat())
+                        }
+                        val textElements = targetNodes.mapNotNull { it.text?.trim() ?: it.contentDescription?.trim() }.distinct()
+                        val textContext = textElements.joinToString(" ").trim()
+
+                        val query = if (textContext.isNotEmpty()) {
+                            "[Mobile Screen Perception] The user circled this text on their phone screen: \"$textContext\". Explain what it is or answer the question about it."
+                        } else {
+                            "[Mobile Screen Perception] The user circled an area on their mobile screen. (Note: Image perception is currently disabled; no text was found in the area)."
+                        }
+                        handleUserQuery(query, isVoice = lastInputWasVoice)
+                    }
+                }
             } else {
-                "Analiza lo que he rodeado en pantalla en las coordenadas [${bounds.left.toInt()}, ${bounds.top.toInt()}, ${bounds.right.toInt()}, ${bounds.bottom.toInt()}]"
+                Toast.makeText(this, "Accessibility Service is needed for screen capture", Toast.LENGTH_SHORT).show()
             }
-            handleUserQuery(query)
         }
     }
 
     private fun startCircleToSearch() {
         binding.circleSearchOverlay.visibility = View.VISIBLE
-        Toast.makeText(this, "Rodea con tu dedo lo que deseas buscar o analizar", Toast.LENGTH_SHORT).show()
+        binding.circleSearchOverlay.bringToFront()
+        Toast.makeText(this, "Circle the area on screen you want to search", Toast.LENGTH_SHORT).show()
     }
 
     private fun handleCapturedPhoto(bitmap: Bitmap) {
-        val stream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, stream)
-        val byteArray = stream.toByteArray()
-        val base64 = Base64.encodeToString(byteArray, Base64.NO_WRAP)
-
-        val prompt = "He tomado una fotografía de mi entorno. Analízala en detalle y dime qué ves y en qué me puedes ayudar."
-        processQuery(prompt)
+        val prompt = "[Photo attached by user]\nI took a photo with my Android phone camera. (Note: If vision processing is currently unavailable on this model, please let me know and ask how you can help.)"
+        handleUserQuery(prompt, isVoice = lastInputWasVoice)
     }
 
-    private fun handleUserQuery(query: String) {
+    private fun handleUserQuery(query: String, isVoice: Boolean) {
+        lastInputWasVoice = isVoice
         val lower = query.lowercase().trim()
 
-        // 1. Direct Local Tools (Dicio Actions)
-        if (lower.startsWith("abre ") || lower.startsWith("abrir ")) {
+        // 1. Direct local execution for instant mobile tools
+        if (lower.startsWith("open ") || lower.startsWith("abre ") || lower.startsWith("abrir ")) {
             val appTarget = query.substring(5).trim()
             if (toolManager.openApp(appTarget)) {
-                binding.tvAssistStatus.text = "Abriendo $appTarget..."
-                voiceManager.speak("Abriendo $appTarget") {
-                    finish()
+                val reply = "Opening $appTarget..."
+                binding.tvAssistStatus.text = query
+                binding.tvAssistTranscription.visibility = View.VISIBLE
+                binding.tvAssistTranscription.text = reply
+                conversationHistory.add(ChatRoleMessage("user", query))
+                conversationHistory.add(ChatRoleMessage("assistant", reply))
+                if (isVoice) {
+                    binding.btnAssistStopTts.visibility = View.VISIBLE
+                    voiceManager.speak(reply) {
+                        runOnUiThread {
+                            binding.btnAssistStopTts.visibility = View.GONE
+                        }
+                    }
                 }
                 return
             }
-        } else if (lower.startsWith("linterna ")) {
-            val on = lower.contains("enciende") || lower.contains("activa") || lower.contains("on")
+        } else if (lower.startsWith("flashlight ") || lower.startsWith("linterna ")) {
+            val on = lower.contains("on") || lower.contains("enciende") || lower.contains("activa")
             toolManager.setFlashlight(on)
-            val msg = if (on) "Linterna encendida." else "Linterna apagada."
-            binding.tvAssistStatus.text = msg
-            voiceManager.speak(msg) {
-                if (!voiceManager.isLiveMode) finish()
+            val msg = if (on) "Flashlight turned on." else "Flashlight turned off."
+            binding.tvAssistStatus.text = query
+            binding.tvAssistTranscription.visibility = View.VISIBLE
+            binding.tvAssistTranscription.text = msg
+            conversationHistory.add(ChatRoleMessage("user", query))
+            conversationHistory.add(ChatRoleMessage("assistant", msg))
+            if (isVoice) {
+                binding.btnAssistStopTts.visibility = View.VISIBLE
+                voiceManager.speak(msg) {
+                    runOnUiThread {
+                        binding.btnAssistStopTts.visibility = View.GONE
+                    }
+                }
             }
             return
         }
 
-        // 2. Stream to Sayri Core on PC
-        processQuery(query)
+        // 2. Stream to Sayri Core with persistent assistSessionId for multi-turn dialogue
+        processQuery(query, isVoice)
     }
 
-    private fun processQuery(query: String) {
-        binding.assistOrb.state = OrbState.THINKING
-        binding.tvAssistStatus.text = query
+    private fun processQuery(query: String, isVoice: Boolean) {
+        binding.cajitaCard.mode = "thinking"
+        val displayQuery = if (query.contains("data:image/")) {
+            val note = query.substringAfterLast("\n\n").take(120)
+            if (note.isNotBlank()) "[Image selection] $note" else "[Image selection]"
+        } else {
+            query
+        }
+        binding.tvAssistStatus.text = displayQuery
         binding.tvAssistTranscription.visibility = View.VISIBLE
-        binding.tvAssistTranscription.text = "..."
+        binding.tvAssistTranscription.text = "Thinking..."
 
+        conversationHistory.add(ChatRoleMessage("user", query))
         val fullResponse = StringBuilder()
 
         apiClient.streamChat(
-            messages = listOf(ChatRoleMessage("user", query)),
+            messages = conversationHistory,
+            sessionId = assistSessionId,
             onDelta = { delta ->
                 runOnUiThread {
                     fullResponse.append(delta)
-                    binding.tvAssistTranscription.text = fullResponse.toString()
+                    binding.tvAssistTranscription.text = MarkdownRenderer.render(fullResponse.toString())
                 }
             },
             onDone = { finalTxt ->
                 runOnUiThread {
-                    binding.assistOrb.state = OrbState.SPEAKING
-                    val res = if (finalTxt.isNotEmpty()) finalTxt else fullResponse.toString()
-                    binding.tvAssistTranscription.text = res
+                    val raw = if (finalTxt.isNotEmpty()) finalTxt else fullResponse.toString()
+                    val (cleanRes, _) = toolManager.parseAndExecuteAction(raw)
 
-                    voiceManager.speak(res) {
-                        runOnUiThread {
-                            binding.assistOrb.state = OrbState.IDLE
-                            if (!voiceManager.isLiveMode) {
-                                binding.assistOrb.postDelayed({ finish() }, 2000)
+                    conversationHistory.add(ChatRoleMessage("assistant", cleanRes))
+                    binding.tvAssistTranscription.text = MarkdownRenderer.render(cleanRes)
+
+                    if (isVoice) {
+                        binding.cajitaCard.mode = "speaking"
+                        binding.btnAssistStopTts.visibility = View.VISIBLE
+                        voiceManager.speak(cleanRes) {
+                            runOnUiThread {
+                                binding.cajitaCard.mode = "idle"
+                                binding.btnAssistStopTts.visibility = View.GONE
+                                // Reopen mic to listen for user continuation!
+                                startVoiceCapture()
                             }
                         }
+                    } else {
+                        binding.cajitaCard.mode = "idle"
                     }
                 }
             },
             onError = { err ->
                 runOnUiThread {
-                    binding.assistOrb.state = OrbState.IDLE
-                    binding.tvAssistTranscription.text = "⚠️ Error: ${err.message}"
+                    binding.cajitaCard.mode = "idle"
+                    binding.btnAssistStopTts.visibility = View.GONE
+                    val msg = if (err.message?.contains("401") == true) {
+                        "Device not paired. Open Sayri settings to enter PC pairing PIN."
+                    } else {
+                        "Error: ${err.message}"
+                    }
+                    binding.tvAssistTranscription.text = msg
                 }
             }
         )
     }
 
+    private fun updateLiveModeUi() {
+        if (voiceManager.isLiveMode) {
+            binding.btnAssistLiveMode.text = "Live: ON"
+            binding.btnAssistLiveMode.setBackgroundResource(R.drawable.bg_cajita_btn_primary)
+            binding.btnAssistLiveMode.setTextColor(getColor(R.color.cajita_text_primary))
+        } else {
+            binding.btnAssistLiveMode.text = "Live: OFF"
+            binding.btnAssistLiveMode.setBackgroundResource(R.drawable.bg_cajita_btn)
+            binding.btnAssistLiveMode.setTextColor(getColor(R.color.cajita_text_secondary))
+        }
+    }
+
     override fun onDestroy() {
+        stopAnyPlaybackOrCapture()
         voiceManager.destroy()
         super.onDestroy()
     }

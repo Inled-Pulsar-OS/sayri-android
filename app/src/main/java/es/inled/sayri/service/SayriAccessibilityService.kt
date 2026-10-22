@@ -173,4 +173,41 @@ class SayriAccessibilityService : AccessibilityService() {
     fun goBack(): Boolean = performGlobalAction(GLOBAL_ACTION_BACK)
     fun goHome(): Boolean = performGlobalAction(GLOBAL_ACTION_HOME)
     fun openRecents(): Boolean = performGlobalAction(GLOBAL_ACTION_RECENTS)
+
+    /**
+     * Captures a real screenshot of the screen for Vision and Circle to Search.
+     */
+    fun captureScreenshot(onResult: (android.graphics.Bitmap?) -> Unit) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            try {
+                takeScreenshot(
+                    android.view.Display.DEFAULT_DISPLAY,
+                    mainExecutor,
+                    object : TakeScreenshotCallback {
+                        override fun onSuccess(screenshotResult: ScreenshotResult) {
+                            try {
+                                val hardwareBuffer = screenshotResult.hardwareBuffer
+                                val colorSpace = screenshotResult.colorSpace
+                                val bitmap = android.graphics.Bitmap.wrapHardwareBuffer(hardwareBuffer, colorSpace)
+                                val copy = bitmap?.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
+                                hardwareBuffer.close()
+                                onResult(copy ?: bitmap)
+                            } catch (e: Exception) {
+                                onResult(null)
+                            }
+                        }
+
+                        override fun onFailure(errorCode: Int) {
+                            onResult(null)
+                        }
+                    }
+                )
+            } catch (e: Throwable) {
+                android.util.Log.e("SayriAccessibility", "Failed to take screenshot", e)
+                onResult(null)
+            }
+        } else {
+            onResult(null)
+        }
+    }
 }

@@ -4,14 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#66000000">
-
-    <!-- Circle to Search Canvas Overlay (Active when user taps Rodear para buscar) -->
-    <es.inled.sayri.ui.CircleSearchOverlayView
-        android:id="@+id/circleSearchOverlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="gone" />
+    android:background="#77000000">
 
     <!-- Dismiss Background Scrim -->
     <View
@@ -21,18 +14,14 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toTopOf="@id/cajitaCard" />
 
-    <!-- Sayri Cajita Acrylic Card -->
-    <com.google.android.material.card.MaterialCardView
+    <!-- Sayri Desktop-Style Acrylic Card with Chroma-Ring -->
+    <es.inled.sayri.ui.CajitaCardView
         android:id="@+id/cajitaCard"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginHorizontal="14dp"
-        android:layout_marginBottom="14dp"
-        app:cardCornerRadius="26dp"
-        app:cardBackgroundColor="@color/cajita_card"
-        app:strokeColor="@color/cajita_border"
-        app:strokeWidth="1.2dp"
-        app:cardElevation="24dp"
+        android:layout_marginHorizontal="12dp"
+        android:layout_marginBottom="18dp"
+        android:elevation="28dp"
         app:layout_constraintBottom_toBottomOf="parent">
 
         <LinearLayout
@@ -40,77 +29,126 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="center_horizontal"
-            android:padding="16dp">
+            android:paddingHorizontal="16dp"
+            android:paddingTop="14dp"
+            android:paddingBottom="16dp">
 
-            <!-- Cajita Top Row: Logo, Title, Live Mode Badge -->
+            <!-- Cajita Header: Logo, Title, Controls -->
             <RelativeLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp">
+                android:layout_marginBottom="10dp">
 
-                <ImageView
-                    android:id="@+id/ivCajitaLogo"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:src="@drawable/sayri_logo"
-                    android:layout_alignParentStart="true"
-                    android:layout_centerVertical="true"
-                    android:contentDescription="Sayri" />
-
-                <TextView
+                <LinearLayout
+                    android:id="@+id/headerTitleLayout"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_toEndOf="@id/ivCajitaLogo"
-                    android:layout_centerVertical="true"
-                    android:layout_marginStart="8dp"
-                    android:text="Sayri"
-                    android:textColor="@color/cajita_text_primary"
-                    android:textSize="17sp"
-                    android:textStyle="bold" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_alignParentStart="true"
+                    android:layout_centerVertical="true">
 
-                <!-- Live Mode Toggle Chip -->
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnAssistLiveMode"
-                    style="@style/Widget.Material3.Button.TonalButton"
+                    <ImageView
+                        android:id="@+id/ivCajitaLogo"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/sayri_logo"
+                        android:contentDescription="Sayri" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="Sayri"
+                        android:textColor="@color/cajita_text_primary"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
                     android:layout_width="wrap_content"
-                    android:layout_height="34dp"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
                     android:layout_alignParentEnd="true"
-                    android:layout_centerVertical="true"
-                    android:text="Modo Live: OFF"
-                    android:textSize="11sp"
-                    android:paddingHorizontal="10dp" />
+                    android:layout_centerVertical="true">
+
+                    <!-- Stop TTS Button (Visible when speaking) -->
+                    <TextView
+                        android:id="@+id/btnAssistStopTts"
+                        android:layout_width="wrap_content"
+                        android:layout_height="30dp"
+                        android:background="@drawable/bg_cajita_btn_primary"
+                        android:gravity="center"
+                        android:paddingHorizontal="10dp"
+                        android:layout_marginEnd="6dp"
+                        android:text="Stop Audio"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:visibility="gone"
+                        android:clickable="true"
+                        android:focusable="true" />
+
+                    <!-- Live Mode Toggle Chip -->
+                    <TextView
+                        android:id="@+id/btnAssistLiveMode"
+                        android:layout_width="wrap_content"
+                        android:layout_height="30dp"
+                        android:background="@drawable/bg_cajita_btn"
+                        android:gravity="center"
+                        android:paddingHorizontal="10dp"
+                        android:text="Live: OFF"
+                        android:textColor="@color/cajita_text_secondary"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:clickable="true"
+                        android:focusable="true" />
+
+                    <ImageView
+                        android:id="@+id/btnAssistClose"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:layout_marginStart="8dp"
+                        android:padding="4dp"
+                        android:src="@android:drawable/ic_menu_close_clear_cancel"
+                        app:tint="@color/cajita_text_secondary"
+                        android:contentDescription="Close" />
+                </LinearLayout>
             </RelativeLayout>
 
-            <!-- Animated Siri / Sayri Orb from default UI -->
-            <es.inled.sayri.ui.SayriOrbView
-                android:id="@+id/assistOrb"
-                android:layout_width="104dp"
-                android:layout_height="104dp"
-                android:layout_marginVertical="6dp" />
-
-            <!-- Status and transcription -->
+            <!-- Large User Query (Prominent) -->
             <TextView
                 android:id="@+id/tvAssistStatus"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="¿En qué puedo ayudarte?"
-                android:textColor="@color/cajita_text_primary"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textAlignment="center"
-                android:layout_marginBottom="8dp" />
-
-            <TextView
-                android:id="@+id/tvAssistTranscription"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/cajita_text_secondary"
-                android:textSize="14sp"
-                android:maxLines="5"
-                android:visibility="gone"
-                android:layout_marginBottom="12dp" />
+                android:text="How can I help you?"
+                android:textColor="#FFFFFF"
+                android:textSize="19sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="8dp" />
 
-            <!-- Feature Action Row: Voz, Rodear para buscar, Cámara -->
+            <!-- Large Assistant Response in ScrollView for Maximum Screen Utility -->
+            <androidx.core.widget.NestedScrollView
+                android:id="@+id/scrollAssistResponse"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxHeight="280dp"
+                android:fadeScrollbars="false"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:id="@+id/tvAssistTranscription"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#E2E8F0"
+                    android:textSize="16.5sp"
+                    android:lineSpacingExtra="4dp"
+                    android:textIsSelectable="true"
+                    android:visibility="gone" />
+            </androidx.core.widget.NestedScrollView>
+
+            <!-- Feature Action Row: Voice, Circle to Search, Camera -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -119,74 +157,101 @@
                 android:layout_marginBottom="12dp">
 
                 <!-- Voice Mic Button -->
-                <com.google.android.material.button.MaterialButton
+                <TextView
                     android:id="@+id/btnAssistVoice"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="40dp"
-                    android:text="🎙️ Hablar"
-                    android:textSize="12sp"
-                    android:layout_marginEnd="6dp" />
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_cajita_btn"
+                    android:gravity="center"
+                    android:text="Voice"
+                    android:textColor="@color/cajita_text_primary"
+                    android:textSize="12.5sp"
+                    android:textStyle="bold"
+                    android:layout_marginEnd="6dp"
+                    android:clickable="true"
+                    android:focusable="true" />
 
                 <!-- Circle to Search Button -->
-                <com.google.android.material.button.MaterialButton
+                <TextView
                     android:id="@+id/btnAssistCircleSearch"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="40dp"
-                    android:text="🔍 Rodear buscar"
-                    android:textSize="12sp"
-                    android:layout_marginEnd="6dp" />
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1.4"
+                    android:background="@drawable/bg_cajita_btn"
+                    android:gravity="center"
+                    android:text="Circle to Search"
+                    android:textColor="@color/cajita_text_primary"
+                    android:textSize="12.5sp"
+                    android:textStyle="bold"
+                    android:layout_marginEnd="6dp"
+                    android:clickable="true"
+                    android:focusable="true" />
 
                 <!-- Camera Vision Button -->
-                <com.google.android.material.button.MaterialButton
+                <TextView
                     android:id="@+id/btnAssistCamera"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="40dp"
-                    android:text="📷 Cámara"
-                    android:textSize="12sp" />
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_cajita_btn"
+                    android:gravity="center"
+                    android:text="Camera"
+                    android:textColor="@color/cajita_text_primary"
+                    android:textSize="12.5sp"
+                    android:textStyle="bold"
+                    android:clickable="true"
+                    android:focusable="true" />
             </LinearLayout>
 
-            <!-- Input Pill Box -->
+            <!-- Cajita Top Input Pill Box -->
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
+                android:layout_height="48dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:background="@drawable/bg_cajita_pill"
                 android:paddingHorizontal="14dp">
 
                 <ImageView
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:src="@drawable/sayri_logo"
                     android:contentDescription="Sayri" />
 
                 <EditText
                     android:id="@+id/etAssistInput"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:layout_marginStart="10dp"
                     android:background="@null"
-                    android:hint="Pregunta o pide cualquier acción..."
+                    android:hint="Ask or say anything..."
                     android:textColor="@color/cajita_text_primary"
                     android:textColorHint="@color/cajita_text_muted"
-                    android:textSize="14sp"
+                    android:textSize="13.5sp"
+                    android:imeOptions="actionSend"
                     android:inputType="textCapSentences" />
 
                 <ImageButton
                     android:id="@+id/btnAssistSend"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:src="@android:drawable/ic_menu_send"
-                    app:tint="@color/cajita_neon_cyan"
+                    app:tint="@color/cajita_accent_cyan"
                     android:contentDescription="Send" />
             </LinearLayout>
 
         </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
+    </es.inled.sayri.ui.CajitaCardView>
+
+    <!-- Circle to Search Canvas Overlay (Brought to front over everything when active) -->
+    <es.inled.sayri.ui.CircleSearchOverlayView
+        android:id="@+id/circleSearchOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:elevation="40dp"
+        android:visibility="gone" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

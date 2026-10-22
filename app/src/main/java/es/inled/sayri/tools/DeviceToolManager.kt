@@ -172,4 +172,36 @@ class DeviceToolManager(private val context: Context) {
      */
     fun typeTextOnScreen(target: String, text: String): Boolean =
         SayriAccessibilityService.instance?.setTextInField(target, text) ?: false
+
+    /**
+     * Parses [ACTION: TYPE param] blocks output by Sayri Core and executes them on device.
+     */
+    fun parseAndExecuteAction(text: String): Pair<String, Boolean> {
+        val actionPattern = Regex("\\[ACTION:\\s*([A-Z_]+)(?:\\s+(.*?))?\\]")
+        val match = actionPattern.find(text) ?: return Pair(text, false)
+        val actionType = match.groupValues[1]
+        val param = match.groupValues.getOrNull(2)?.trim() ?: ""
+        var executed = false
+        when (actionType) {
+            "OPEN_APP" -> if (param.isNotEmpty()) executed = openApp(param)
+            "FLASHLIGHT" -> executed = setFlashlight(param.equals("on", ignoreCase = true) || param.equals("true", ignoreCase = true) || param.contains("enciende", ignoreCase = true))
+            "TIMER" -> {
+                val sec = param.split(" ").firstOrNull()?.toIntOrNull() ?: 300
+                val label = param.substringAfter(" ", "Sayri Timer")
+                executed = setTimer(sec, label)
+            }
+            "ALARM" -> {
+                val parts = param.split(":")
+                if (parts.size >= 2) {
+                    val h = parts[0].trim().toIntOrNull() ?: 8
+                    val m = parts[1].trim().toIntOrNull() ?: 0
+                    executed = setAlarm(h, m)
+                }
+            }
+            "WEB" -> if (param.isNotEmpty()) executed = openWeb(param)
+            "NAVIGATE" -> if (param.isNotEmpty()) executed = openNavigation(param)
+        }
+        val cleanText = text.replace(match.value, "").trim()
+        return Pair(cleanText, executed)
+    }
 }
