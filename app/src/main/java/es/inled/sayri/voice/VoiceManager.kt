@@ -23,6 +23,7 @@ import es.inled.sayri.api.SayriApiClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.net.URLEncoder
@@ -431,6 +432,14 @@ class VoiceManager(
         if (clean.isNotEmpty()) {
             onSpeechResult(clean)
         }
+    }
+
+    fun stopAll() {
+        stopListening()
+        stopSpeaking()
+        try {
+            scope.coroutineContext.cancelChildren()
+        } catch (_: Throwable) {}
     }
 
     fun stopSpeaking() {

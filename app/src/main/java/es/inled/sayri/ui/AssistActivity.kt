@@ -9,6 +9,7 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import es.inled.sayri.R
@@ -19,6 +20,7 @@ import es.inled.sayri.databinding.LayoutSayriCajitaAssistBinding
 import es.inled.sayri.service.SayriAccessibilityService
 import es.inled.sayri.tools.DeviceToolManager
 import es.inled.sayri.voice.VoiceManager
+import okhttp3.sse.EventSource
 import java.io.ByteArrayOutputStream
 
 class AssistActivity : ComponentActivity() {
@@ -32,6 +34,7 @@ class AssistActivity : ComponentActivity() {
     private val assistSessionId = "mobile-assist-${java.util.UUID.randomUUID()}"
     private var lastInputWasVoice: Boolean = false
     private var isProcessingOrSpeaking: Boolean = false
+    private var activeStreamSource: EventSource? = null
 
     private val requestAudioPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -115,6 +118,13 @@ class AssistActivity : ComponentActivity() {
         setupListeners()
         setupCardDimensions()
 
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                stopAllImmediately()
+                finish()
+            }
+        })
+
         // Auto start listening on assist invocation
         binding.root.postDelayed({
             startVoiceCapture()
@@ -147,19 +157,25 @@ class AssistActivity : ComponentActivity() {
         }
     }
 
+    private fun stopAllImmediately() {
+        isProcessingOrSpeaking = false
+
+        try {
+            activeStreamSource?.cancel()
+        } catch (_: Throwable) {}
+        activeStreamSource = null
+
+        if (::voiceManager.isInitialized) {
+            voiceManager.stopAll()
+        }
+
+        binding.cajitaCard.mode = "idle"
+        binding.btnAssistVoice.text = "Voice"
+        binding.btnAssistStopTts.visibility = View.GONE
+    }
+
     private fun stopAnyPlaybackOrCapture() {
-        if (voiceManager.isSpeaking) {
-            voiceManager.stopSpeaking()
-            binding.btnAssistStopTts.visibility = View.GONE
-            binding.cajitaCard.mode = "idle"
-            return
-        }
-        if (voiceManager.isCurrentlyListening) {
-            voiceManager.stopListening()
-            binding.cajitaCard.mode = "idle"
-            binding.btnAssistVoice.text = "Voice"
-            return
-        }
+        stopAllImmediately()
     }
 
     private fun triggerCamera() {
@@ -398,17 +414,23 @@ class AssistActivity : ComponentActivity() {
         conversationHistory.add(ChatRoleMessage("user", query))
         val fullResponse = StringBuilder()
 
-        apiClient.streamChat(
+        activeStreamSource?.cancel()
+        activeStreamSource = apiClient.streamChat(
             messages = conversationHistory,
             sessionId = assistSessionId,
             onDelta = { delta ->
+                if (isFinishing || isDestroyed || activeStreamSource == null) return@streamChat
                 runOnUiThread {
+                    if (isFinishing || isDestroyed || activeStreamSource == null) return@runOnUiThread
                     fullResponse.append(delta)
                     binding.tvAssistTranscription.text = MarkdownRenderer.render(fullResponse.toString())
                 }
             },
             onDone = { finalTxt ->
+                if (isFinishing || isDestroyed || activeStreamSource == null) return@streamChat
                 runOnUiThread {
+                    if (isFinishing || isDestroyed || activeStreamSource == null) return@runOnUiThread
+                    activeStreamSource = null
                     val raw = if (finalTxt.isNotEmpty()) finalTxt else fullResponse.toString()
                     val (cleanRes, _) = toolManager.parseAndExecuteAction(raw)
 
@@ -421,6 +443,7 @@ class AssistActivity : ComponentActivity() {
                         binding.btnAssistStopTts.visibility = View.VISIBLE
                         voiceManager.speak(cleanRes) {
                             runOnUiThread {
+                                if (isFinishing || isDestroyed) return@runOnUiThread
                                 isProcessingOrSpeaking = false
                                 binding.cajitaCard.mode = "idle"
                                 binding.btnAssistStopTts.visibility = View.GONE
@@ -437,7 +460,10 @@ class AssistActivity : ComponentActivity() {
                 }
             },
             onError = { err ->
+                if (isFinishing || isDestroyed) return@streamChat
                 runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    activeStreamSource = null
                     isProcessingOrSpeaking = false
                     binding.cajitaCard.mode = "idle"
                     binding.btnAssistStopTts.visibility = View.GONE
@@ -464,9 +490,21 @@ class AssistActivity : ComponentActivity() {
         }
     }
 
+    override fun onPause() {
+        stopAllImmediately()
+        super.onPause()
+    }
+
+    override fun onStop() {
+        stopAllImmediately()
+        super.onStop()
+    }
+
     override fun onDestroy() {
-        stopAnyPlaybackOrCapture()
-        voiceManager.destroy()
+        stopAllImmediately()
+        if (::voiceManager.isInitialized) {
+            voiceManager.destroy()
+        }
         super.onDestroy()
     }
 }
